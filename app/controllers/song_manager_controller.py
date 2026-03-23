@@ -1,5 +1,6 @@
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_http_methods
 
 from app.models import Creator, Library
 from app.services.song_manager_service import (
@@ -53,6 +54,7 @@ def library_detail(request, library_id):
     })
 
 
+@require_http_methods(["POST"])
 def add_song(request, library_id, song_id):
     library = add_song_to_library(library_id, song_id)
 
@@ -63,6 +65,7 @@ def add_song(request, library_id, song_id):
     })
 
 
+@require_http_methods(["POST"])
 def remove_song(request, library_id, song_id):
     library = remove_song_from_library(library_id, song_id)
 
@@ -73,6 +76,7 @@ def remove_song(request, library_id, song_id):
     })
 
 
+@require_http_methods(["POST"])
 def create_share(request, song_id):
     share = create_share_for_song(song_id)
 
@@ -114,6 +118,7 @@ def open_shared_song(request, token):
     })
 
 
+@require_http_methods(["POST"])
 def remove_share(request, share_id):
     delete_share(share_id)
 

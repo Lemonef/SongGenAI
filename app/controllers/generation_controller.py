@@ -1,5 +1,6 @@
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.shortcuts import get_object_or_404
 
 from app.models import Creator, Form
 from app.services.generation_service import create_mock_song_from_form
@@ -11,13 +12,13 @@ def generation_home(request):
 
 @require_http_methods(["POST"])
 def create_form_and_song(request):
-    creator = Creator.objects.get(id=request.POST.get("creator_id"))
+    creator = get_object_or_404(Creator, id=request.POST.get("creator_id"))
 
     form = Form.objects.create(
         creator=creator,
         prompt=request.POST.get("prompt", ""),
-        genre=request.POST.get("genre", "unknown"),
-        mood=request.POST.get("mood", "unknown"),
+        genre=request.POST.get("genre", "Unknown"),
+        mood=request.POST.get("mood", "Unknown"),
         requested_title=request.POST.get("requested_title", "Untitled Song"),
         requested_duration_seconds=int(request.POST.get("requested_duration_seconds", 30)),
     )
@@ -29,4 +30,5 @@ def create_form_and_song(request):
         "form_id": form.id,
         "song_id": song.id,
         "song_title": song.title,
+        "duration_seconds": song.duration_seconds,
     })
