@@ -94,12 +94,14 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         for _ in range(self.MAX_POLLS):
             try:
                 time.sleep(self.POLL_INTERVAL_SECONDS)
-                status, audio_url, image_url = self._fetch_status(song.task_id)
+                status, audio_url, image_url, duration = self._fetch_status(song.task_id)
                 song.status = status
                 if audio_url:
                     song.audio_url = audio_url
                 if image_url:
                     song.image_url = image_url
+                if duration:
+                    song.duration_seconds = int(float(duration))
                 song.save()
                 if status in ("SUCCESS", "FAILED"):
                     return
@@ -129,6 +131,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
 
         audio_url = None
         image_url = None
+        duration = None
         
         # Extract audio_url and image_url handling both old (clips/songs) and new (response.sunoData) formats
         if isinstance(record, dict):
@@ -139,6 +142,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                 if isinstance(suno_data, list) and suno_data:
                     audio_url = suno_data[0].get("audioUrl") or suno_data[0].get("audio_url")
                     image_url = suno_data[0].get("imageUrl") or suno_data[0].get("image_url")
+                    duration = suno_data[0].get("duration") or suno_data[0].get("audio_duration")
             
             # Fallback to old format
             if not audio_url:
@@ -146,6 +150,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                 if isinstance(clips, list) and clips:
                     audio_url = clips[0].get("audioUrl") or clips[0].get("audio_url")
                     image_url = image_url or clips[0].get("imageUrl") or clips[0].get("image_url")
+                    duration = duration or clips[0].get("duration") or clips[0].get("audio_duration")
 
-        return status, audio_url, image_url
+        return status, audio_url, image_url, duration
 

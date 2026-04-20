@@ -12,6 +12,8 @@ from app.controllers.song_manager_controller import (
     list_song_shares,
     open_shared_song,
     remove_share,
+    toggle_song_visibility,
+    update_song_duration,
 )
 
 urlpatterns = [
@@ -28,4 +30,6 @@ urlpatterns = [
     path("song/<int:song_id>/share/", create_share, name="create_share"),
     path("share/<uuid:token>/", open_shared_song, name="open_shared_song"),
     path("share/<int:share_id>/delete/", remove_share, name="remove_share"),
+    path("song/<int:song_id>/toggle-visibility/", toggle_song_visibility, name="toggle_song_visibility"),
+    path("song/<int:song_id>/update-duration/", update_song_duration, name="update_song_duration"),
 ]

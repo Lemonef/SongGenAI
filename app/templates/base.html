@@ -293,8 +293,32 @@
           this.progress = (this.currentTime / this.duration) * 100;
         },
 
-        onLoaded(e) {
+        async onLoaded(e) {
+          const actualDuration = Math.floor(e.target.duration);
           this.duration = e.target.duration;
+
+          // Sync duration to backend if needed
+          if (this.currentSong && actualDuration > 0) {
+            const storedDuration = this.currentSong.duration_seconds || 0;
+            // If stored is 30 (default) or deviates by more than 5 seconds, sync it
+            if (storedDuration === 30 || (storedDuration > 0 && Math.abs(storedDuration - actualDuration) > 5)) {
+              console.log(`[Sync] Updating duration for song ${this.currentSong.id}: ${storedDuration} -> ${actualDuration}`);
+              try {
+                await fetch(`/manager/song/${this.currentSong.id}/update-duration/`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrf()
+                  },
+                  body: JSON.stringify({ duration: actualDuration })
+                });
+                // Update local object to prevent re-sync
+                this.currentSong.duration_seconds = actualDuration;
+              } catch (err) {
+                console.error("Failed to sync duration:", err);
+              }
+            }
+          }
         },
 
         onEnded() {

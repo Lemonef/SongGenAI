@@ -114,35 +114,76 @@
         <h2 class="text-2xl font-bold mb-4" x-text="currentView === 'history' ? 'Your History' : currentLibrary.name">
         </h2>
         <template x-for="song in songs" :key="song.id">
-          <div class="card rounded-xl px-6 py-5 flex items-center gap-5 group transition-all">
-            <!-- Play icon -->
-            <button @click="$dispatch('play-song', { song, playlist: songs })" 
-                    class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all group-hover:glow-purple shadow-lg" style="background:rgba(124,58,237,0.25)">
-              <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M7 6v12l10-6z"/>
-              </svg>
-            </button>
+          <div class="card rounded-xl px-6 py-5 flex items-center gap-5 group transition-all"
+               :class="song.status !== 'SUCCESS' ? 'opacity-60 bg-white/[0.02]' : ''">
+            <!-- Play/Loading icon -->
+            <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all shadow-lg"
+                 :style="song.status === 'SUCCESS' ? 'background:rgba(124,58,237,0.25)' : 'background:rgba(255,255,255,0.05)'">
+              
+              <template x-if="song.status === 'SUCCESS'">
+                <button @click="$dispatch('play-song', { song, playlist: songs })" class="w-full h-full flex items-center justify-center group-hover:glow-purple transition-all">
+                  <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"/></svg>
+                </button>
+              </template>
+              
+              <template x-if="song.status !== 'SUCCESS' && song.status !== 'FAILED'">
+                <div class="flex items-center justify-center">
+                  <svg class="w-5 h-5 text-violet-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              </template>
+
+              <template x-if="song.status === 'FAILED'">
+                <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+              </template>
+            </div>
 
             <!-- Thumbnail -->
-            <div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 shadow-md border border-white/5">
+            <div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 shadow-md border border-white/5 relative">
               <template x-if="song.image_url">
-                <img :src="song.image_url" class="w-full h-full object-cover">
+                <img :src="song.image_url" class="w-full h-full object-cover" :class="song.status !== 'SUCCESS' ? 'grayscale opacity-50' : ''">
               </template>
               <template x-if="!song.image_url">
                 <div class="w-full h-full bg-purple-900/40 flex items-center justify-center">
-                  <svg class="w-6 h-6 text-violet-400/20" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+                  <svg class="w-6 h-6 text-violet-400/20" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
                 </div>
               </template>
             </div>
 
             <!-- Info -->
             <div class="flex-1 min-w-0">
-              <p class="font-bold truncate text-sm" x-text="song.title"></p>
-              <p class="text-gray-500 text-xs mt-1" x-text="`${song.duration_seconds}s`"></p>
+              <div class="flex items-center gap-2">
+                <p class="font-bold truncate text-sm" x-text="song.title"></p>
+                
+                <!-- Status Badges -->
+                <template x-if="song.status !== 'SUCCESS' && song.status !== 'FAILED'">
+                  <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                    Generating
+                  </span>
+                </template>
+
+                <template x-if="song.status === 'FAILED'">
+                  <span class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold uppercase tracking-wider">
+                    Failed
+                  </span>
+                </template>
+
+                <!-- Visibility Toggle (Only for Creator and Only if Success) -->
+                <template x-if="song.can_edit_visibility && song.status === 'SUCCESS'">
+                  <button @click="toggleVisibility(song)" 
+                          class="flex items-center gap-1.5 px-2 py-0.5 rounded-full border transition-all text-[10px] font-bold uppercase tracking-wider"
+                          :class="song.is_public ? 'border-green-500/30 text-green-400 hover:bg-green-500/10' : 'border-gray-600/30 text-gray-400 hover:bg-gray-600/10'">
+                    <span x-text="song.is_public ? 'Public' : 'Private'"></span>
+                  </button>
+                </template>
+              </div>
+              <p class="text-gray-500 text-xs mt-1" x-text="song.status === 'SUCCESS' ? formatTime(song.duration_seconds) : 'Processing by AI...'"></p>
             </div>
 
             <!-- Pre-Actions -->
-            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" x-show="song.status === 'SUCCESS'">
               <!-- Add to Library (only show in History View) -->
               <button x-show="currentView === 'history'" @click="openAddToLibrary(song)"
                 class="px-3 py-1.5 rounded-lg border border-purple-800 text-gray-400 hover:text-white hover:border-purple-600 text-xs font-medium transition-all"
@@ -446,6 +487,22 @@
     }
   },
 
+  async toggleVisibility(song) {
+    try {
+        const res = await fetch(`/manager/song/${song.id}/toggle-visibility/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            song.is_public = data.is_public;
+        } else {
+            const data = await res.json();
+            alert(data.error || 'Failed to toggle visibility');
+        }
+    } catch (e) { console.error(e); }
+  },
+
     async removeFromLibrary(songId) {
     if (!this.currentLibrary) return;
     try {
@@ -513,6 +570,13 @@
       console.error("Failed to create and save", e);
     }
   },
+
+  formatTime(sec) {
+    if (!sec) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  }
   };
 }
 </script>

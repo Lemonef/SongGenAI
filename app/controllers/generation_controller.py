@@ -97,8 +97,10 @@ def suno_callback(request):
     if not song:
         return JsonResponse({"error": "Song not found for task_id"}, status=404)
 
-    # Extract audio_url
+    # Extract metadata
     audio_url = None
+    image_url = None
+    duration = None
     
     # Try different payload structures based on callback evolution
     if "data" in payload and isinstance(payload["data"], dict):
@@ -108,6 +110,7 @@ def suno_callback(request):
             if isinstance(suno_data, list) and suno_data:
                 audio_url = suno_data[0].get("audioUrl") or suno_data[0].get("audio_url")
                 image_url = suno_data[0].get("imageUrl") or suno_data[0].get("image_url")
+                duration = suno_data[0].get("duration") or suno_data[0].get("audio_duration")
                 
         # fallback as before
         if not audio_url:
@@ -115,14 +118,18 @@ def suno_callback(request):
             if isinstance(song_data_list, list) and song_data_list:
                 audio_url = song_data_list[0].get("audio_url") or song_data_list[0].get("audioUrl")
                 image_url = image_url or song_data_list[0].get("imageUrl") or song_data_list[0].get("image_url")
+                duration = duration or song_data_list[0].get("duration") or song_data_list[0].get("audio_duration")
             elif "audioUrl" in payload["data"]:
                  audio_url = payload["data"]["audioUrl"]
                  image_url = image_url or payload["data"].get("imageUrl")
+                 duration = duration or payload["data"].get("duration") or payload["data"].get("audio_duration")
 
     if audio_url:
         song.audio_url = audio_url
         if image_url:
             song.image_url = image_url
+        if duration:
+            song.duration_seconds = int(float(duration))
         song.status = "SUCCESS"
     else:
         # Fallback to status from payload if present

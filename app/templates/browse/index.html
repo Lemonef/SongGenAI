@@ -50,7 +50,7 @@
       <div class="flex-1 min-w-0">
         <h3 class="font-bold text-xl truncate group-hover:text-violet-400 transition-colors">{{ song.title }}</h3>
         <p class="text-gray-500 text-sm mt-1.5 flex items-center gap-2">
-          <span>{{ song.duration_seconds }}s</span>
+          <span x-text="formatTime({{ song.duration_seconds }})"></span>
           <span class="w-1 h-1 rounded-full bg-gray-700"></span>
           <span>by <span class="text-gray-300 font-medium">{{ song.creator.name }}</span></span>
         </p>
@@ -211,15 +211,18 @@ function browseView() {
               await this.saveToLibrary(data.library_id, true);
               await this.fetchLibraries();
           }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error("Failed to create and save", e);
+      }
       this.saving = false;
     },
-
-    showToast(msg) {
-      this.toast = msg;
-      setTimeout(() => this.toast = '', 3000);
-    },
-    songsList: []
+  
+    formatTime(sec) {
+      if (!sec) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
   }
 }
 </script>
@@ -232,7 +235,8 @@ function browseView() {
       "title": "{{ song.title|escapejs }}",
       "creator_name": "{{ song.creator.name|escapejs }}",
       "audio_url": "{{ song.audio_url|escapejs }}",
-      "image_url": "{{ song.image_url|escapejs }}"
+      "image_url": "{{ song.image_url|escapejs }}",
+      "duration_seconds": {{ song.duration_seconds }}
     }{% if not forloop.last %},{% endif %}
     {% endfor %}
   ]

@@ -47,6 +47,9 @@ def default_song_history(request):
                 "audio_url": song.audio_url,
                 "image_url": song.image_url,
                 "creator_name": song.creator.name,
+                "is_public": song.is_public,
+                "status": song.status,
+                "can_edit_visibility": (song.creator.user == user),
             }
             for song in songs
         ]
@@ -105,6 +108,9 @@ def library_detail(request, library_id):
                 "audio_url": song.audio_url,
                 "image_url": song.image_url,
                 "creator_name": song.creator.name,
+                "is_public": song.is_public,
+                "status": song.status,
+                "can_edit_visibility": (song.creator.user == user),
             }
             for song in songs
         ]
@@ -214,3 +220,49 @@ def remove_share(request, share_id):
         "message": "Share deleted successfully",
         "share_id": share_id,
     })
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_song_visibility(request, song_id):
+    """
+    Toggles a song's visibility (Public/Private).
+    Only the original creator of the song can change its visibility.
+    """
+    song = get_object_or_404(Song, id=song_id)
+    
+    # Ownership Check: Only the creator (linked to user) can edit
+    if not song.creator or song.creator.user != request.user:
+        return JsonResponse({"error": "Only the creator of this song can change its visibility."}, status=403)
+    
+    song.is_public = not song.is_public
+    song.save(update_fields=["is_public"])
+    
+    return JsonResponse({
+        "status": "success",
+        "is_public": song.is_public,
+        "message": f"Song is now {'Public' if song.is_public else 'Private'}"
+    })
+
+@login_required # Anyone can help sync duration if they can play the song
+@require_http_methods(["POST"])
+def update_song_duration(request, song_id):
+    """
+    Updates the song's duration in the database if it's currently inaccurate.
+    This helps fix '30s' placeholders with real metadata from the player.
+    """
+    song = get_object_or_404(Song, id=song_id)
+    try:
+        data = json.loads(request.body)
+        new_duration = int(float(data.get("duration", 0)))
+        
+        # Only update if the current duration is the default placeholder (30) 
+        # or if there is a significant discrepancy.
+        if 0 < new_duration <= 3600: # Sanity check (max 1 hour)
+            if song.duration_seconds == 30 or abs(song.duration_seconds - new_duration) > 5:
+                song.duration_seconds = new_duration
+                song.save(update_fields=["duration_seconds"])
+                return JsonResponse({"status": "updated", "new_duration": new_duration})
+                
+        return JsonResponse({"status": "unchanged"})
+    except (ValueError, json.JSONDecodeError):
+        return JsonResponse({"error": "Invalid duration data"}, status=400)
