@@ -28,7 +28,7 @@
     {% for song in songs %}
     <div class="card rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6 group hover:border-violet-500/30 transition-all">
       <!-- Play Button -->
-      <button @click="$dispatch('play-song', { id: '{{ song.id }}', title: '{{ song.title|escapejs }}', creator_name: '{{ song.creator.name|escapejs }}', audio_url: '{{ song.audio_url|escapejs }}', image_url: '{{ song.image_url|escapejs }}' })"
+      <button @click="$dispatch('play-song', { song: songsList.find(s => s.id == '{{ song.id }}'), playlist: songsList })"
               class="w-12 h-12 rounded-2xl btn-primary flex items-center justify-center flex-shrink-0 transition-all hover:scale-105 active:scale-95 shadow-lg group-hover:glow-purple">
         <svg class="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
           <path d="M7 6v12l10-6z"/>
@@ -155,6 +155,7 @@ function browseView() {
 
     init() {
       this.fetchLibraries();
+      this.songsList = JSON.parse(document.getElementById('songs-data').textContent);
     },
 
     async fetchLibraries() {
@@ -217,8 +218,30 @@ function browseView() {
     showToast(msg) {
       this.toast = msg;
       setTimeout(() => this.toast = '', 3000);
-    }
+    },
+    songsList: []
   }
 }
+</script>
+
+<script id="songs-data" type="application/json">
+  [
+    {% for song in songs %}
+    {
+      "id": "{{ song.id }}",
+      "title": "{{ song.title|escapejs }}",
+      "creator_name": "{{ song.creator.name|escapejs }}",
+      "audio_url": "{{ song.audio_url|escapejs }}",
+      "image_url": "{{ song.image_url|escapejs }}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+</script>
+
+<script>
+  document.addEventListener('alpine:init', () => {
+    // We already have browseView in the x-data, but we need to populate songsList
+    // A simple way is to find the component and set it
+  });
 </script>
 {% endblock %}

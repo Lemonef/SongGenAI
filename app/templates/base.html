@@ -152,10 +152,15 @@
 
       <!-- Controls -->
       <div class="flex flex-col items-center gap-2 flex-1 max-w-xl">
-        <div class="flex items-center gap-8">
+        <div class="flex items-center gap-6">
+          <!-- Previous Song -->
+          <button @click="playPrev" class="text-gray-500 hover:text-white transition-colors" title="Previous Track">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+
           <!-- Skip Backward -->
-          <button @click="skipBackward" class="text-gray-400 hover:text-white transition-colors" title="Go back 15s">
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <button @click="skipBackward" class="text-gray-400/60 hover:text-white transition-colors" title="Go back 15s">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12.5 3C17.15 3 21 6.85 21 11.5c0 4.65-3.85 8.5-8.5 8.5-2.03 0-3.89-.72-5.35-1.92l1.43-1.43C9.72 17.5 11.04 18 12.5 18c3.59 0 6.5-2.91 6.5-6.5S16.09 5 12.5 5c-1.61 0-3.1.59-4.26 1.57L11 9H5V3l2.09 2.09C8.58 3.81 10.46 3 12.5 3z"/>
               <text x="12.5" y="14" font-size="6" text-anchor="middle" fill="currentColor" font-weight="bold">15</text>
             </svg>
@@ -176,11 +181,16 @@
           </button>
 
           <!-- Skip Forward -->
-          <button @click="skipForward" class="text-gray-400 hover:text-white transition-colors" title="Forward 15s">
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <button @click="skipForward" class="text-gray-400/60 hover:text-white transition-colors" title="Forward 15s">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M11.5 3C6.85 3 3 6.85 3 11.5 3 16.15 6.85 20 11.5 20c2.03 0 3.89-.72 5.35-1.92l-1.43-1.43C14.28 17.5 12.96 18 11.5 18c-3.59 0-6.5-2.91-6.5-6.5S7.91 5 11.5 5c1.61 0 3.1.59 4.26 1.57L13 9h6V3l-2.09 2.09C15.42 3.81 13.54 3 11.5 3z"/>
               <text x="11.5" y="14" font-size="6" text-anchor="middle" fill="currentColor" font-weight="bold">15</text>
             </svg>
+          </button>
+
+          <!-- Next Song -->
+          <button @click="playNext" class="text-gray-500 hover:text-white transition-colors" title="Next Track">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
           </button>
         </div>
         <!-- Progress Bar -->
@@ -212,15 +222,26 @@
         currentTime: 0,
         duration: 0,
         progress: 0,
+        queue: [],
+        currentIndex: -1,
 
         init() {
           window.addEventListener('play-song', (e) => {
-            this.play(e.detail);
+            this.play(e.detail.song || e.detail, e.detail.playlist || null);
           });
         },
 
-        play(song) {
+        play(song, playlist = null) {
           const audio = document.getElementById('globalAudio');
+          
+          if (playlist) {
+            this.queue = playlist;
+            this.currentIndex = this.queue.findIndex(s => (s.id || s.song_id) === (song.id || song.song_id));
+          } else if (!this.queue.length) {
+            this.queue = [song];
+            this.currentIndex = 0;
+          }
+
           if (this.currentSong?.id === song.id && this.isPlaying) {
              this.togglePlay();
              return;
@@ -230,6 +251,20 @@
           audio.src = song.audio_url;
           audio.play();
           this.isPlaying = true;
+        },
+
+        playNext() {
+          if (this.queue.length > 0) {
+            this.currentIndex = (this.currentIndex + 1) % this.queue.length;
+            this.play(this.queue[this.currentIndex]);
+          }
+        },
+
+        playPrev() {
+          if (this.queue.length > 0) {
+            this.currentIndex = (this.currentIndex - 1 + this.queue.length) % this.queue.length;
+            this.play(this.queue[this.currentIndex]);
+          }
         },
 
         togglePlay() {
@@ -263,9 +298,13 @@
         },
 
         onEnded() {
-          this.isPlaying = false;
-          this.progress = 0;
-          this.currentTime = 0;
+          if (this.queue.length > 1) {
+            this.playNext();
+          } else {
+            this.isPlaying = false;
+            this.progress = 0;
+            this.currentTime = 0;
+          }
         },
 
         seek(e) {
