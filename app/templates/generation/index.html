@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Generate Song — SongGenAI{% endblock %}
+{% block nav_generate %}active{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-16" x-data="songGen()" x-cloak>
+
+  <div class="mb-10">
+    <h1 class="text-4xl font-bold mb-3">Generate a Song</h1>
+    <p class="text-gray-500">Describe your vision and let AI compose your track.</p>
+  </div>
+
+  <!-- Form Card -->
+  <div class="card rounded-2xl p-8" x-show="state === 'idle' || state === 'error'">
+    <form @submit.prevent="generate" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Title -->
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-2">Title</label>
+        <input type="text" x-model="form.title" placeholder="My Awesome Song" class="w-full rounded-xl px-4 py-3 text-sm">
+      </div>
+
+      <!-- Prompt -->
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-2">Song Description <span class="text-violet-400">*</span></label>
+        <textarea x-model="form.prompt" rows="3" placeholder="A melancholic indie pop song about rainy days in the city, with soft guitar and echoing vocals..." class="w-full rounded-xl px-4 py-3 text-sm resize-none" required></textarea>
+      </div>
+
+      <!-- Genre + Mood -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Genre</label>
+          <select x-model="form.genre" class="w-full rounded-xl px-4 py-3 text-sm">
+            <option value="Pop">Pop</option>
+            <option value="Rock">Rock</option>
+            <option value="Hip-Hop">Hip-Hop</option>
+            <option value="Electronic">Electronic</option>
+            <option value="Jazz">Jazz</option>
+            <option value="Classical">Classical</option>
+            <option value="R&B">R&B</option>
+            <option value="Country">Country</option>
+            <option value="Folk">Folk</option>
+            <option value="Indie">Indie</option>
+            <option value="Metal">Metal</option>
+            <option value="Ambient">Ambient</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-300 mb-2">Mood</label>
+          <select x-model="form.mood" class="w-full rounded-xl px-4 py-3 text-sm">
+            <option value="Happy">Happy</option>
+            <option value="Sad">Sad</option>
+            <option value="Melancholic">Melancholic</option>
+            <option value="Energetic">Energetic</option>
+            <option value="Calm">Calm</option>
+            <option value="Dark">Dark</option>
+            <option value="Romantic">Romantic</option>
+            <option value="Epic">Epic</option>
+            <option value="Chill">Chill</option>
+            <option value="Angry">Angry</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Duration -->
+      <div>
+        <label class="block text-sm font-medium text-gray-300 mb-2">Duration <span class="text-gray-600 text-xs">(seconds)</span></label>
+        <input type="number" x-model="form.duration" min="10" max="300" placeholder="30" class="w-full rounded-xl px-4 py-3 text-sm">
+      </div>
+
+      <!-- Error -->
+      <div x-show="state === 'error'" class="rounded-xl px-4 py-3 text-sm text-red-400 border border-red-800/40 bg-red-900/10" x-text="errorMsg"></div>
+
+      <button type="submit" class="btn-primary w-full py-4 rounded-xl font-semibold text-base flex items-center justify-center gap-2">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+        Generate Song
+      </button>
+    </form>
+  </div>
+
+  <!-- Generating State -->
+  <div x-show="state === 'generating'" class="card rounded-2xl p-10 text-center">
+    <div class="flex justify-center items-end gap-1 mb-8 h-16">
+      <div class="w-2 bg-violet-600 rounded-full eq-bar" style="height:50%"></div>
+      <div class="w-2 bg-violet-500 rounded-full eq-bar" style="height:80%"></div>
+      <div class="w-2 bg-purple-500 rounded-full eq-bar" style="height:40%"></div>
+      <div class="w-2 bg-violet-600 rounded-full eq-bar" style="height:100%"></div>
+      <div class="w-2 bg-violet-400 rounded-full eq-bar" style="height:65%"></div>
+      <div class="w-2 bg-purple-600 rounded-full eq-bar" style="height:50%"></div>
+    </div>
+    <h2 class="text-2xl font-bold mb-3">Composing your song...</h2>
+    <p class="text-gray-500 mb-6" x-text="statusMessage"></p>
+    <div class="flex items-center justify-center gap-2 text-sm">
+      <span class="status-badge px-3 py-1 rounded-full uppercase tracking-wider"
+        :class="{
+          'bg-yellow-900/30 text-yellow-400 border border-yellow-800/40': song && song.status === 'PENDING',
+          'bg-blue-900/30 text-blue-400 border border-blue-800/40': song && (song.status === 'TEXT_SUCCESS' || song.status === 'FIRST_SUCCESS'),
+        }"
+        x-text="song ? song.status : 'PENDING'">
+      </span>
+    </div>
+  </div>
+
+  <!-- Success State -->
+  <div x-show="state === 'success'" class="space-y-4">
+    <div class="card rounded-2xl p-8">
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="status-badge bg-green-900/30 text-green-400 border border-green-800/40 px-3 py-1 rounded-full uppercase tracking-wider">Success</span>
+          </div>
+          <h2 class="text-2xl font-bold mt-3" x-text="song && song.song_title"></h2>
+          <p class="text-gray-500 text-sm mt-1" x-text="song ? `${song.duration_seconds}s · ${form.genre} · ${form.mood}` : ''"></p>
+        </div>
+        <div class="w-14 h-14 rounded-2xl btn-primary flex items-center justify-center flex-shrink-0 glow-purple">
+          <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+        </div>
+      </div>
+
+      <!-- Audio Player -->
+      <div x-show="song && song.audio_url" class="mb-6">
+        <audio controls class="w-full rounded-xl" :src="song && song.audio_url" style="filter:hue-rotate(250deg)">
+          Your browser does not support audio.
+        </audio>
+      </div>
+
+      <div class="flex gap-3">
+        <button @click="reset" class="flex-1 py-3 rounded-xl border border-purple-800 text-gray-300 hover:text-white hover:border-purple-600 transition-all text-sm font-medium">
+          Generate Another
+        </button>
+        <a :href="`/playback/?song_id=${song && song.song_id}`" class="flex-1 btn-primary py-3 rounded-xl text-sm font-medium text-center">
+          Open in Player
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Failed State -->
+  <div x-show="state === 'failed'" class="card rounded-2xl p-8 text-center border-red-800/40">
+    <div class="w-14 h-14 rounded-full bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+    </div>
+    <h2 class="text-xl font-bold mb-2">Generation Failed</h2>
+    <p class="text-gray-500 text-sm mb-6">Something went wrong. Please try again.</p>
+    <button @click="reset" class="btn-primary px-6 py-3 rounded-xl text-sm font-medium">Try Again</button>
+  </div>
+
+</div>
+
+<script>
+function songGen() {
+  return {
+    state: 'idle',
+    song: null,
+    errorMsg: '',
+    statusMessage: 'AI is composing your track...',
+    pollTimer: null,
+    form: {
+      prompt: '',
+      genre: 'Pop',
+      mood: 'Happy',
+      title: '',
+      duration: 30,
+    },
+
+    async generate() {
+      if (!this.form.prompt.trim()) { this.state = 'error'; this.errorMsg = 'Please describe your song.'; return; }
+
+      this.state = 'generating';
+      this.errorMsg = '';
+      this.song = null;
+
+      const fd = new FormData();
+      fd.append('prompt', this.form.prompt);
+      fd.append('genre', this.form.genre);
+      fd.append('mood', this.form.mood);
+      fd.append('requested_title', this.form.title || 'Untitled Song');
+      fd.append('requested_duration_seconds', this.form.duration || 30);
+
+      try {
+        const res = await fetch('/generation/create/', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCsrf() },
+          body: fd,
+        });
+        if (!res.ok) throw new Error('Server error ' + res.status);
+        const data = await res.json();
+        this.song = data;
+
+        if (data.status === 'SUCCESS') {
+          this.state = 'success';
+        } else if (data.status === 'FAILED') {
+          this.state = 'failed';
+        } else {
+          this.pollStatus(data.song_id);
+        }
+      } catch (e) {
+        this.errorMsg = e.message || 'Generation failed. Please try again.';
+      }
+    },
+
+    pollStatus(songId) {
+      const messages = [
+        'AI is composing your track...',
+        'Generating melody and rhythm...',
+        'Adding instruments and vocals...',
+        'Mixing and mastering...',
+        'Almost ready...',
+      ];
+      let tick = 0;
+      this.pollTimer = setInterval(async () => {
+        this.statusMessage = messages[tick % messages.length];
+        tick++;
+        try {
+          const res = await fetch(`/generation/status/${songId}/`);
+          const data = await res.json();
+          this.song = { ...this.song, ...data };
+          if (data.status === 'SUCCESS') {
+            clearInterval(this.pollTimer);
+            this.state = 'success';
+          } else if (data.status === 'FAILED') {
+            clearInterval(this.pollTimer);
+            this.state = 'failed';
+          }
+        } catch (_) {}
+      }, 3000);
+    },
+
+    reset() {
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      this.state = 'idle';
+      this.song = null;
+      this.errorMsg = '';
+    },
+  };
+}
+</script>
+{% endblock %}

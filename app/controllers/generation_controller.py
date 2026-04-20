@@ -1,34 +1,120 @@
-from django.http import HttpResponse, JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.shortcuts import get_object_or_404
+import json
+import logging
 
-from app.models import Creator, Form
-from app.services.generation_service import create_mock_song_from_form
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+
+from app.models import Creator, Form, Song
+from app.services.generation_service import generate_song_from_form
+
+logger = logging.getLogger(__name__)
 
 
 def generation_home(request):
-    return HttpResponse("Generation page")
+    return render(request, 'generation/index.html')
 
 
 @require_http_methods(["POST"])
 def create_form_and_song(request):
-    creator = get_object_or_404(Creator, id=request.POST.get("creator_id"))
+    try:
+        creator, _ = Creator.objects.get_or_create(
+            name="Default User",
+            defaults={"email": "default@songgen.ai"}
+        )
 
-    form = Form.objects.create(
-        creator=creator,
-        prompt=request.POST.get("prompt", ""),
-        genre=request.POST.get("genre", "Unknown"),
-        mood=request.POST.get("mood", "Unknown"),
-        requested_title=request.POST.get("requested_title", "Untitled Song"),
-        requested_duration_seconds=int(request.POST.get("requested_duration_seconds", 30)),
-    )
+        form = Form.objects.create(
+            creator=creator,
+            prompt=request.POST.get("prompt", ""),
+            genre=request.POST.get("genre", "Unknown"),
+            mood=request.POST.get("mood", "Unknown"),
+            requested_title=request.POST.get("requested_title", "Untitled Song"),
+            requested_duration_seconds=int(request.POST.get("requested_duration_seconds", 30)),
+        )
 
-    song = create_mock_song_from_form(form)
+        song = generate_song_from_form(form)
 
+        return JsonResponse({
+            "message": "Song created successfully",
+            "form_id": form.id,
+            "song_id": song.id,
+            "song_title": song.title,
+            "duration_seconds": song.duration_seconds,
+            "status": song.status,
+            "audio_url": song.audio_url,
+            "task_id": song.task_id,
+        })
+    except ValueError as e:
+        logger.error(f"ValueError in create_form_and_song: {str(e)}")
+        return JsonResponse({"error": f"Invalid input: {str(e)}"}, status=400)
+    except Exception as e:
+        logger.error(f"Exception in create_form_and_song: {str(e)}", exc_info=True)
+        return JsonResponse({"error": f"Server error: {str(e)}"}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_song_status(request, song_id):
+    from app.models import Song
+    song = get_object_or_404(Song, id=song_id)
     return JsonResponse({
-        "message": "Song created successfully",
-        "form_id": form.id,
         "song_id": song.id,
         "song_title": song.title,
-        "duration_seconds": song.duration_seconds,
+        "status": song.status,
+        "audio_url": song.audio_url,
+        "task_id": song.task_id,
     })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def suno_callback(request):
+    print("[SUNO CALLBACK] Received callback request:", request.body)
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        print("[SUNO CALLBACK] Invalid JSON payload:", request.body)
+        return JsonResponse({"error": "Invalid JSON payload"}, status=400)
+
+    # Suno official format: payload['data']['task_id'], payload['data']['data'][0]['audio_url']
+    data = payload.get("data") or {}
+    task_id = data.get("task_id")
+    if not task_id:
+        return JsonResponse({"error": "Missing task_id in callback"}, status=400)
+
+    song = Song.objects.filter(task_id=task_id).first()
+    if not song:
+        return JsonResponse({"error": "Song not found for task_id"}, status=404)
+
+    # Extract audio_url
+    audio_url = None
+    
+    # Try different payload structures based on callback evolution
+    if "data" in payload and isinstance(payload["data"], dict):
+        resp_obj = payload["data"].get("response")
+        if isinstance(resp_obj, dict):
+            suno_data = resp_obj.get("sunoData") or []
+            if isinstance(suno_data, list) and suno_data:
+                audio_url = suno_data[0].get("audioUrl") or suno_data[0].get("audio_url")
+                
+        # fallback as before
+        if not audio_url:
+            song_data_list = payload["data"].get("data") or []
+            if isinstance(song_data_list, list) and song_data_list:
+                audio_url = song_data_list[0].get("audio_url") or song_data_list[0].get("audioUrl")
+            elif "audioUrl" in payload["data"]:
+                 audio_url = payload["data"]["audioUrl"]
+
+    if audio_url:
+        song.audio_url = audio_url
+        song.status = "SUCCESS"
+    else:
+        # Fallback to status from payload if present
+        payload_status = data.get("status", "SUCCESS")
+        if payload_status == "SUCCESS" and not audio_url:
+             pass 
+        else:
+            song.status = payload_status if payload_status in ["SUCCESS", "FAILED"] else "FAILED"
+
+    song.save()
+    return JsonResponse({"message": "Callback processed", "song_id": song.id})

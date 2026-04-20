@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Player — SongGenAI{% endblock %}
+{% block nav_player %}active{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-6 py-16" x-data="player()" x-init="init()">
+
+  <div class="mb-10">
+    <h1 class="text-4xl font-bold mb-3">Music Player</h1>
+    <p class="text-gray-500">Play and listen to your AI-generated songs.</p>
+  </div>
+
+  <!-- Song ID input -->
+  <div class="card rounded-2xl p-6 mb-6">
+    <label class="block text-sm font-medium text-gray-300 mb-3">Load Song by ID</label>
+    <div class="flex gap-3">
+      <input
+        type="number"
+        x-model="songIdInput"
+        placeholder="Enter song ID..."
+        @keydown.enter="loadSong"
+        min="1"
+        class="flex-1 rounded-xl px-4 py-3 text-sm">
+      <button @click="loadSong" :disabled="loading" class="btn-primary px-6 py-3 rounded-xl text-sm font-semibold whitespace-nowrap">
+        <span x-show="!loading">Load Song</span>
+        <span x-show="loading">Loading...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div x-show="error" class="rounded-xl px-4 py-3 text-sm text-red-400 border border-red-800/40 bg-red-900/10 mb-6" x-text="error"></div>
+
+  <!-- Player Card -->
+  <div x-show="song" class="card rounded-2xl overflow-hidden">
+    <!-- Album art / visual -->
+    <div class="relative h-48 flex items-center justify-center overflow-hidden" style="background:linear-gradient(135deg,#1a0a2e,#0d0020,#1a0a2e)">
+      <div class="absolute inset-0 opacity-30" style="background:radial-gradient(ellipse at 50% 100%,rgba(124,58,237,0.6),transparent 60%)"></div>
+
+      <!-- Spinning disc (only when audio playing) -->
+      <div class="relative z-10 w-28 h-28">
+        <div class="w-28 h-28 rounded-full border-4 border-purple-800/60 flex items-center justify-center"
+          :class="isPlaying ? 'spin-slow' : ''"
+          style="background:linear-gradient(135deg,#2d1b69,#1a0a2e)">
+          <div class="w-8 h-8 rounded-full bg-purple-900 border-2 border-violet-700 flex items-center justify-center">
+            <div class="w-2 h-2 rounded-full bg-violet-400"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Equalizer overlay when playing -->
+      <div x-show="isPlaying" class="absolute bottom-4 flex items-end gap-1 h-8">
+        <div class="w-1.5 bg-violet-500 rounded-full eq-bar" style="height:60%"></div>
+        <div class="w-1.5 bg-violet-400 rounded-full eq-bar" style="height:90%"></div>
+        <div class="w-1.5 bg-purple-500 rounded-full eq-bar" style="height:45%"></div>
+        <div class="w-1.5 bg-violet-600 rounded-full eq-bar" style="height:100%"></div>
+        <div class="w-1.5 bg-violet-400 rounded-full eq-bar" style="height:70%"></div>
+      </div>
+    </div>
+
+    <!-- Song Info -->
+    <div class="px-8 py-6">
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold" x-text="song && song.song_title"></h2>
+          <div class="flex items-center gap-3 mt-2">
+            <span class="text-gray-500 text-sm" x-text="song ? `Song #${song.song_id}` : ''"></span>
+            <span class="w-1 h-1 rounded-full bg-gray-700"></span>
+            <span class="status-badge px-3 py-1 rounded-full uppercase tracking-wider text-xs"
+              :class="{
+                'bg-green-900/30 text-green-400 border border-green-800/40': song && song.status === 'SUCCESS',
+                'bg-yellow-900/30 text-yellow-400 border border-yellow-800/40': song && song.status === 'PENDING',
+                'bg-red-900/30 text-red-400 border border-red-800/40': song && song.status === 'FAILED',
+                'bg-blue-900/30 text-blue-400 border border-blue-800/40': song && (song.status === 'FIRST_SUCCESS' || song.status === 'TEXT_SUCCESS'),
+              }"
+              x-text="song && song.status">
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio player -->
+      <div x-show="song && song.audio_url" class="mb-6">
+        <audio
+          x-ref="audio"
+          controls
+          class="w-full rounded-xl"
+          :src="song && song.audio_url"
+          @play="isPlaying = true"
+          @pause="isPlaying = false"
+          @ended="isPlaying = false"
+          style="filter:hue-rotate(250deg)">
+        </audio>
+      </div>
+
+      <!-- No audio yet -->
+      <div x-show="song && !song.audio_url" class="rounded-xl px-4 py-4 text-sm text-gray-500 border border-gray-800/40 bg-gray-900/20 mb-6 text-center">
+        Audio not available yet — song may still be generating.
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <a :href="`/manager/`" class="flex-1 py-3 rounded-xl border border-purple-800 text-gray-300 hover:text-white hover:border-purple-600 transition-all text-sm font-medium text-center">
+          Back to Library
+        </a>
+        <a href="/generation/" class="flex-1 btn-primary py-3 rounded-xl text-sm font-medium text-center">
+          Generate New
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div x-show="!song && !loading && !error" class="card rounded-2xl p-16 text-center">
+    <div class="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6" style="background:rgba(124,58,237,0.15)">
+      <svg class="w-10 h-10 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+    </div>
+    <h3 class="text-lg font-semibold text-gray-400 mb-2">No song loaded</h3>
+    <p class="text-gray-600 text-sm">Enter a song ID above or go to the library to pick a song.</p>
+    <a href="/manager/" class="inline-block mt-6 px-6 py-3 rounded-xl border border-purple-800 text-violet-400 hover:text-white hover:border-purple-600 transition-all text-sm font-medium">
+      Browse Library
+    </a>
+  </div>
+
+</div>
+
+<script>
+function player() {
+  return {
+    songIdInput: '',
+    song: null,
+    loading: false,
+    error: '',
+    isPlaying: false,
+
+    init() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('song_id');
+      if (id) {
+        this.songIdInput = id;
+        this.loadSong();
+      }
+    },
+
+    async loadSong() {
+      if (!this.songIdInput) return;
+      this.loading = true;
+      this.error = '';
+      this.song = null;
+      this.isPlaying = false;
+      try {
+        const res = await fetch(`/generation/status/${this.songIdInput}/`);
+        if (!res.ok) throw new Error('Song not found');
+        const data = await res.json();
+        this.song = data;
+      } catch (e) {
+        this.error = e.message || 'Could not load song.';
+      }
+      this.loading = false;
+    },
+  };
+}
+</script>
+{% endblock %}

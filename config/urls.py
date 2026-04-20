@@ -1,9 +1,9 @@
 from django.contrib import admin
-from django.http import HttpResponse
+from django.shortcuts import render
 from django.urls import include, path
 
 def home(request):
-    return HttpResponse("SongGenAI Home")
+    return render(request, 'home.html')
 
 urlpatterns = [
     path("", home, name="home"),

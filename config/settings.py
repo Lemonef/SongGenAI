@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +30,11 @@ SECRET_KEY = 'django-insecure-)^($t-hi_m^-v2=zld7+-qnph7lhl(3obaew6yvxrp-aqp=b^g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "disliking-algebra-destitute.ngrok-free.dev",
+]
 
 
 # Application definition
@@ -118,3 +127,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Song generation strategy: "mock" or "suno"
+GENERATOR_STRATEGY = os.environ.get("GENERATOR_STRATEGY", "mock")
+SUNO_API_KEY = os.environ.get("SUNO_API_KEY", "")
+SUNO_CALLBACK_URL = os.environ.get("SUNO_CALLBACK_URL", "")

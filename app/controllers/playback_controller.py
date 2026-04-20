@@ -1,9 +1,10 @@
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
+from django.shortcuts import render
 from app.services.playback_service import get_song_playback_info
 
 
 def playback_home(request):
-    return HttpResponse("Playback page")
+    return render(request, 'playback/index.html')
 
 
 def play_song(request, song_id):

@@ -9,7 +9,7 @@ from app.models import (
     Share,
     CreditTransaction,
 )
-from app.services.generation_service import create_mock_song_from_form
+from app.services.generation_service import generate_song_from_form
 
 
 @admin.register(Form)
@@ -27,7 +27,7 @@ class FormAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         if not change:
-            create_mock_song_from_form(obj)
+            generate_song_from_form(obj)
 
 
 @admin.register(Library)

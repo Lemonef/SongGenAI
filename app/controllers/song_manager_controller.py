@@ -1,5 +1,5 @@
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 
 from app.models import Creator, Library
@@ -15,16 +15,20 @@ from app.services.song_manager_service import (
 )
 
 
+import json
+
 def manager_home(request):
-    return HttpResponse("Manager page")
+    return render(request, 'manager/index.html')
 
 
-def creator_song_history(request, creator_id):
-    creator = get_object_or_404(Creator, id=creator_id)
+def default_song_history(request):
+    creator, _ = Creator.objects.get_or_create(
+        name="Default User",
+        defaults={"email": "default@songgen.ai"}
+    )
     songs = get_creator_song_history(creator)
 
     return JsonResponse({
-        "creator": creator.name,
         "songs": [
             {
                 "id": song.id,
@@ -34,6 +38,36 @@ def creator_song_history(request, creator_id):
             for song in songs
         ]
     })
+
+def list_libraries(request):
+    creator, _ = Creator.objects.get_or_create(
+        name="Default User",
+        defaults={"email": "default@songgen.ai"}
+    )
+    libraries = Library.objects.filter(creator=creator)
+    return JsonResponse({
+        "libraries": [
+            {
+                "id": lib.id,
+                "name": lib.name
+            }
+            for lib in libraries
+        ]
+    })
+
+@require_http_methods(["POST"])
+def create_library(request):
+    try:
+        data = json.loads(request.body)
+        name = data.get("name", "New Library")
+        creator, _ = Creator.objects.get_or_create(
+            name="Default User",
+            defaults={"email": "default@songgen.ai"}
+        )
+        library = Library.objects.create(creator=creator, name=name)
+        return JsonResponse({"message": "Library created", "library_id": library.id, "library_name": library.name})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
 
 def library_detail(request, library_id):

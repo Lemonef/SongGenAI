@@ -1,4 +1,4 @@
-from .generation_service import create_mock_song_from_form
+from .generation_service import generate_song_from_form
 from .song_manager_service import (
     get_creator_song_history,
     add_song_to_library,

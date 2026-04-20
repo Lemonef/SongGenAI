@@ -4,6 +4,14 @@ from .form import Form
 
 
 class Song(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("TEXT_SUCCESS", "Text Success"),
+        ("FIRST_SUCCESS", "First Success"),
+        ("SUCCESS", "Success"),
+        ("FAILED", "Failed"),
+    ]
+
     creator = models.ForeignKey(
         Creator,
         on_delete=models.CASCADE,
@@ -16,6 +24,9 @@ class Song(models.Model):
     )
     title = models.CharField(max_length=100)
     duration_seconds = models.PositiveIntegerField()
+    audio_url = models.URLField(blank=True, default="")
+    task_id = models.CharField(max_length=100, blank=True, default="")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

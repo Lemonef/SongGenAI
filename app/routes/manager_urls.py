@@ -1,7 +1,9 @@
 from django.urls import path
 from app.controllers.song_manager_controller import (
     manager_home,
-    creator_song_history,
+    default_song_history,
+    list_libraries,
+    create_library,
     library_detail,
     add_song,
     remove_song,
@@ -13,7 +15,9 @@ from app.controllers.song_manager_controller import (
 
 urlpatterns = [
     path("", manager_home, name="manager_home"),
-    path("history/<int:creator_id>/", creator_song_history, name="creator_song_history"),
+    path("history/", default_song_history, name="default_song_history"),
+    path("libraries/", list_libraries, name="list_libraries"),
+    path("library/create/", create_library, name="create_library"),
     path("library/<int:library_id>/", library_detail, name="library_detail"),
     path("library/<int:library_id>/add-song/<int:song_id>/", add_song, name="add_song"),
     path("library/<int:library_id>/remove-song/<int:song_id>/", remove_song, name="remove_song"),
