@@ -1,13 +1,15 @@
 from django.db import models
-from .creator import Creator
+from .user_profile import UserProfile
 from .song import Song
 
 
 class Library(models.Model):
-    creator = models.ForeignKey(
-        Creator,
+    profile = models.ForeignKey(
+        UserProfile,
         on_delete=models.CASCADE,
-        related_name="libraries"
+        related_name="libraries",
+        null=True,
+        blank=True
     )
     name = models.CharField(max_length=100)
     songs = models.ManyToManyField(

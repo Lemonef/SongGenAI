@@ -5,5 +5,19 @@ from app.models.song import Song
 
 @login_required
 def browse(request):
-    songs = Song.objects.filter(is_public=True, status="SUCCESS").select_related('creator').order_by('-created_at')
-    return render(request, 'browse/index.html', {'songs': songs})
+    """
+    Community browse page with search support.
+    """
+    query = request.GET.get('q', '')
+    
+    songs = Song.objects.filter(is_public=True, status="SUCCESS").select_related('creator')
+    
+    if query:
+        songs = songs.filter(title__icontains=query)
+        
+    songs = songs.order_by('-created_at')
+    
+    return render(request, 'browse/index.html', {
+        'songs': songs,
+        'query': query
+    })

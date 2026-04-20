@@ -7,6 +7,7 @@ from app.controllers.song_manager_controller import (
     library_detail,
     add_song,
     remove_song,
+    delete_library,
     create_share,
     list_song_shares,
     open_shared_song,
@@ -21,6 +22,7 @@ urlpatterns = [
     path("library/<int:library_id>/", library_detail, name="library_detail"),
     path("library/<int:library_id>/add-song/<int:song_id>/", add_song, name="add_song"),
     path("library/<int:library_id>/remove-song/<int:song_id>/", remove_song, name="remove_song"),
+    path("library/<int:library_id>/delete/", delete_library, name="delete_library"),
 
     path("song/<int:song_id>/shares/", list_song_shares, name="list_song_shares"),
     path("song/<int:song_id>/share/", create_share, name="create_share"),
