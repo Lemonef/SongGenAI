@@ -242,8 +242,16 @@ function songGen() {
             clearInterval(this.pollTimer);
             this.state = 'success';
           } else if (data.status === 'FAILED') {
-            clearInterval(this.pollTimer);
-            this.state = 'failed';
+            // robustness: double-check check one more time after a short delay
+            // in case of a status race condition
+            setTimeout(async () => {
+              const checkRes = await fetch(`/generation/status/${songId}/`);
+              const checkData = await checkRes.json();
+              if (checkData.status === 'FAILED') {
+                clearInterval(this.pollTimer);
+                this.state = 'failed';
+              }
+            }, 2000);
           }
         } catch (_) {}
       }, 3000);

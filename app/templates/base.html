@@ -73,6 +73,14 @@
             <a href="/generation/" class="nav-link hover:text-white transition-colors {% block nav_generate %}{% endblock %}">Generate</a>
           {% endif %}
           <a href="/manager/" class="nav-link hover:text-white transition-colors {% block nav_library %}{% endblock %}">Library</a>
+          {% if is_creator_user %}
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/10 border border-violet-500/20 text-violet-300">
+              <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs font-bold">{{ user_credits }} Credits</span>
+            </div>
+          {% endif %}
           <a href="/accounts/logout/" class="px-4 py-1.5 rounded-lg border border-purple-800/60 text-gray-400 hover:text-white hover:border-purple-600 transition-all text-xs">Sign Out</a>
         {% else %}
           <a href="/accounts/google/login/" class="btn-primary px-4 py-2 rounded-lg text-white text-xs font-semibold flex items-center gap-2">

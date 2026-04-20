@@ -119,11 +119,18 @@ def suno_callback(request):
         song.status = "SUCCESS"
     else:
         # Fallback to status from payload if present
-        payload_status = data.get("status", "SUCCESS")
-        if payload_status == "SUCCESS" and not audio_url:
-             pass 
-        else:
-            song.status = payload_status if payload_status in ["SUCCESS", "FAILED"] else "FAILED"
+        payload_status = data.get("status")
+        # Only update status if it is a terminal state (SUCCESS/FAILED)
+        # If it is intermediate (e.g. PROCESSING, QUEUED), leave it as is or update it
+        # but avoid the logic that forced it to FAILED previously
+        if payload_status == "SUCCESS":
+            # If we don't have an audio_url yet, leave it as is (likely PENDING)
+            pass
+        elif payload_status == "FAILED":
+            song.status = "FAILED"
+        # If it's something else like 'PROCESSING', we don't mark as FAILED
+        # We just wait for the next callback or the poller to find the URL
+
 
     song.save()
     return JsonResponse({"message": "Callback processed", "song_id": song.id})

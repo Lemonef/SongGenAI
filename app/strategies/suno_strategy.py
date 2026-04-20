@@ -11,7 +11,7 @@ from app.models.credit_transaction import CreditTransaction
 class SunoSongGeneratorStrategy(SongGeneratorStrategy):
     BASE_URL = "https://api.sunoapi.org/api/v1"
     POLL_INTERVAL_SECONDS = 5
-    MAX_POLLS = 24  # up to 2 minutes of polling
+    MAX_POLLS = 60  # up to 5 minutes of polling
 
     def _headers(self):
         return {

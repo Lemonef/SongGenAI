@@ -53,3 +53,12 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# AI Tool Metadata
+.gemini/
+ANTIGRAVITY.md
+CLAUDE.md
+
+# Ignoring all Markdown files except README
+*.md
+!README.md
