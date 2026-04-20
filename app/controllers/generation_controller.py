@@ -1,6 +1,7 @@
 import json
 import logging
 
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
@@ -12,17 +13,22 @@ from app.services.generation_service import generate_song_from_form
 logger = logging.getLogger(__name__)
 
 
+@login_required
 def generation_home(request):
+    user = request.user
+    if not hasattr(user, 'creator_profile'):
+        return render(request, 'errors/not_creator.html', status=403)
     return render(request, 'generation/index.html')
 
 
+@login_required
 @require_http_methods(["POST"])
 def create_form_and_song(request):
     try:
-        creator, _ = Creator.objects.get_or_create(
-            name="Default User",
-            defaults={"email": "default@songgen.ai"}
-        )
+        user = request.user
+        if not hasattr(user, 'creator_profile'):
+            return JsonResponse({"error": "Only creators can generate songs."}, status=403)
+        creator = user.creator_profile
 
         form = Form.objects.create(
             creator=creator,
@@ -33,7 +39,10 @@ def create_form_and_song(request):
             requested_duration_seconds=int(request.POST.get("requested_duration_seconds", 30)),
         )
 
+        is_public = request.POST.get("is_public", "true").lower() == "true"
         song = generate_song_from_form(form)
+        song.is_public = is_public
+        song.save(update_fields=["is_public"])
 
         return JsonResponse({
             "message": "Song created successfully",

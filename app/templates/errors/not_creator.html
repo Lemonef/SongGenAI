@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Access Denied — SongGenAI{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center px-6">
+  <div class="text-center">
+    <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6" style="background:rgba(239,68,68,0.15)">
+      <svg class="w-8 h-8 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+    <h1 class="text-2xl font-bold mb-2">Creators Only</h1>
+    <p class="text-gray-500 text-sm mb-8">This area is only accessible to Creators. Listeners can browse and enjoy music from the Browse tab.</p>
+    <a href="/browse/" class="btn-primary px-6 py-3 rounded-xl text-sm font-semibold">Go to Browse</a>
+  </div>
+</div>
+{% endblock %}

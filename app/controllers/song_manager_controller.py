@@ -1,3 +1,4 @@
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
@@ -17,15 +18,20 @@ from app.services.song_manager_service import (
 
 import json
 
+@login_required
 def manager_home(request):
+    user = request.user
+    if not hasattr(user, 'creator_profile'):
+        return render(request, 'errors/not_creator.html', status=403)
     return render(request, 'manager/index.html')
 
 
+@login_required
 def default_song_history(request):
-    creator, _ = Creator.objects.get_or_create(
-        name="Default User",
-        defaults={"email": "default@songgen.ai"}
-    )
+    user = request.user
+    if not hasattr(user, 'creator_profile'):
+        return JsonResponse({"error": "Only creators can view history."}, status=403)
+    creator = user.creator_profile
     songs = get_creator_song_history(creator)
 
     return JsonResponse({
@@ -39,11 +45,12 @@ def default_song_history(request):
         ]
     })
 
+@login_required
 def list_libraries(request):
-    creator, _ = Creator.objects.get_or_create(
-        name="Default User",
-        defaults={"email": "default@songgen.ai"}
-    )
+    user = request.user
+    if not hasattr(user, 'creator_profile'):
+        return JsonResponse({"error": "Only creators can view libraries."}, status=403)
+    creator = user.creator_profile
     libraries = Library.objects.filter(creator=creator)
     return JsonResponse({
         "libraries": [
@@ -55,15 +62,16 @@ def list_libraries(request):
         ]
     })
 
+@login_required
 @require_http_methods(["POST"])
 def create_library(request):
     try:
+        user = request.user
+        if not hasattr(user, 'creator_profile'):
+            return JsonResponse({"error": "Only creators can create libraries."}, status=403)
         data = json.loads(request.body)
         name = data.get("name", "New Library")
-        creator, _ = Creator.objects.get_or_create(
-            name="Default User",
-            defaults={"email": "default@songgen.ai"}
-        )
+        creator = user.creator_profile
         library = Library.objects.create(creator=creator, name=name)
         return JsonResponse({"message": "Library created", "library_id": library.id, "library_name": library.name})
     except Exception as e:
