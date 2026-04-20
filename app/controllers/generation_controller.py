@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @login_required
 def generation_home(request):
     user = request.user
-    if not hasattr(user, 'creator_profile'):
+    if not hasattr(user, 'profile') or not user.profile.is_creator():
         return render(request, 'errors/not_creator.html', status=403)
     return render(request, 'generation/index.html')
 
@@ -26,7 +26,7 @@ def generation_home(request):
 def create_form_and_song(request):
     try:
         user = request.user
-        if not hasattr(user, 'creator_profile'):
+        if not hasattr(user, 'profile') or not user.profile.is_creator():
             return JsonResponse({"error": "Only creators can generate songs."}, status=403)
         creator = user.creator_profile
 

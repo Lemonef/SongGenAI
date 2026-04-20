@@ -1,3 +1,4 @@
+from .user_profile import UserProfile
 from .creator import Creator
 from .listener import Listener
 from .library import Library

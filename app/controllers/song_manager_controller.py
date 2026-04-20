@@ -21,7 +21,7 @@ import json
 @login_required
 def manager_home(request):
     user = request.user
-    if not hasattr(user, 'creator_profile'):
+    if not hasattr(user, 'profile') or not user.profile.is_creator():
         return render(request, 'errors/not_creator.html', status=403)
     return render(request, 'manager/index.html')
 
@@ -29,7 +29,7 @@ def manager_home(request):
 @login_required
 def default_song_history(request):
     user = request.user
-    if not hasattr(user, 'creator_profile'):
+    if not hasattr(user, 'profile') or not user.profile.is_creator():
         return JsonResponse({"error": "Only creators can view history."}, status=403)
     creator = user.creator_profile
     songs = get_creator_song_history(creator)
@@ -48,7 +48,7 @@ def default_song_history(request):
 @login_required
 def list_libraries(request):
     user = request.user
-    if not hasattr(user, 'creator_profile'):
+    if not hasattr(user, 'profile') or not user.profile.is_creator():
         return JsonResponse({"error": "Only creators can view libraries."}, status=403)
     creator = user.creator_profile
     libraries = Library.objects.filter(creator=creator)
@@ -67,7 +67,7 @@ def list_libraries(request):
 def create_library(request):
     try:
         user = request.user
-        if not hasattr(user, 'creator_profile'):
+        if not hasattr(user, 'profile') or not user.profile.is_creator():
             return JsonResponse({"error": "Only creators can create libraries."}, status=403)
         data = json.loads(request.body)
         name = data.get("name", "New Library")
