@@ -26,6 +26,7 @@ class Song(models.Model):
     duration_seconds = models.PositiveIntegerField()
     audio_url = models.URLField(blank=True, default="")
     task_id = models.CharField(max_length=100, blank=True, default="")
+    image_url = models.URLField(blank=True, default="")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     is_public = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

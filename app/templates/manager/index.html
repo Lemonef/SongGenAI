@@ -116,17 +116,29 @@
         <template x-for="song in songs" :key="song.id">
           <div class="card rounded-xl px-6 py-5 flex items-center gap-5 group transition-all">
             <!-- Play icon -->
-            <button @click="$dispatch('play-song', { id: song.id, title: song.title, creator_name: song.creator_name, audio_url: song.audio_url })" 
-                    class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all group-hover:glow-purple" style="background:rgba(124,58,237,0.25)">
+            <button @click="$dispatch('play-song', { id: song.id, title: song.title, creator_name: song.creator_name, audio_url: song.audio_url, image_url: song.image_url })" 
+                    class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all group-hover:glow-purple shadow-lg" style="background:rgba(124,58,237,0.25)">
               <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M7 6v12l10-6z"/>
               </svg>
             </button>
 
+            <!-- Thumbnail -->
+            <div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 shadow-md border border-white/5">
+              <template x-if="song.image_url">
+                <img :src="song.image_url" class="w-full h-full object-cover">
+              </template>
+              <template x-if="!song.image_url">
+                <div class="w-full h-full bg-purple-900/40 flex items-center justify-center">
+                  <svg class="w-6 h-6 text-violet-400/20" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+                </div>
+              </template>
+            </div>
+
             <!-- Info -->
             <div class="flex-1 min-w-0">
-              <p class="font-semibold truncate" x-text="song.title"></p>
-              <p class="text-gray-500 text-sm mt-0.5" x-text="`${song.duration_seconds}s`"></p>
+              <p class="font-bold truncate text-sm" x-text="song.title"></p>
+              <p class="text-gray-500 text-xs mt-1" x-text="`${song.duration_seconds}s`"></p>
             </div>
 
             <!-- Pre-Actions -->

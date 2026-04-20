@@ -71,6 +71,8 @@ def get_song_status(request, song_id):
         "song_title": song.title,
         "status": song.status,
         "audio_url": song.audio_url,
+        "image_url": song.image_url,
+        "creator_name": song.creator.name,
         "task_id": song.task_id,
     })
 
@@ -105,17 +107,22 @@ def suno_callback(request):
             suno_data = resp_obj.get("sunoData") or []
             if isinstance(suno_data, list) and suno_data:
                 audio_url = suno_data[0].get("audioUrl") or suno_data[0].get("audio_url")
+                image_url = suno_data[0].get("imageUrl") or suno_data[0].get("image_url")
                 
         # fallback as before
         if not audio_url:
             song_data_list = payload["data"].get("data") or []
             if isinstance(song_data_list, list) and song_data_list:
                 audio_url = song_data_list[0].get("audio_url") or song_data_list[0].get("audioUrl")
+                image_url = image_url or song_data_list[0].get("imageUrl") or song_data_list[0].get("image_url")
             elif "audioUrl" in payload["data"]:
                  audio_url = payload["data"]["audioUrl"]
+                 image_url = image_url or payload["data"].get("imageUrl")
 
     if audio_url:
         song.audio_url = audio_url
+        if image_url:
+            song.image_url = image_url
         song.status = "SUCCESS"
     else:
         # Fallback to status from payload if present

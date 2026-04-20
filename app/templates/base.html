@@ -65,29 +65,51 @@
         </div>
         <span class="font-bold text-lg">SongGen<span class="text-violet-400">AI</span></span>
       </a>
-      <div class="flex items-center gap-8 text-sm font-medium text-gray-400">
-        <a href="/" class="nav-link hover:text-white transition-colors {% block nav_home %}{% endblock %}">Home</a>
-        {% if user.is_authenticated %}
-          <a href="/browse/" class="nav-link hover:text-white transition-colors {% block nav_browse %}{% endblock %}">Browse</a>
-          {% if user.profile.is_creator %}
-            <a href="/generation/" class="nav-link hover:text-white transition-colors {% block nav_generate %}{% endblock %}">Generate</a>
-          {% endif %}
-          <a href="/manager/" class="nav-link hover:text-white transition-colors {% block nav_library %}{% endblock %}">Library</a>
-          {% if is_creator_user %}
-            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/10 border border-violet-500/20 text-violet-300">
-              <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
-              </svg>
-              <span class="text-xs font-bold">{{ user_credits }} Credits</span>
+        <div class="flex items-center gap-6" x-data="{ open: false }">
+          {% if user.is_authenticated %}
+            <a href="/browse/" class="nav-link hover:text-white transition-colors {% block nav_browse %}{% endblock %}">Browse</a>
+            {% if user.profile.is_creator %}
+              <a href="/generation/" class="nav-link hover:text-white transition-colors {% block nav_generate %}{% endblock %}">Generate</a>
+            {% endif %}
+            <a href="/manager/" class="nav-link hover:text-white transition-colors {% block nav_library %}{% endblock %}">Library</a>
+            
+            {% if is_creator_user %}
+              <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/10 border border-violet-500/20 text-violet-300">
+                <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-xs font-bold">{{ user_credits }} Credits</span>
+              </div>
+            {% endif %}
+
+            <!-- Profile Dropdown -->
+            <div class="relative">
+              <button @click="open = !open" @click.away="open = false" class="w-9 h-9 rounded-full bg-violet-600 flex items-center justify-center text-white font-bold text-sm border-2 border-violet-500/30 hover:border-violet-400 transition-all overflow-hidden">
+                {{ user.username|first|upper }}
+              </button>
+              
+              <div x-show="open" x-cloak 
+                   x-transition:enter="transition ease-out duration-100"
+                   x-transition:enter-start="transform opacity-0 scale-95"
+                   x-transition:enter-end="transform opacity-100 scale-100"
+                   class="absolute right-0 mt-3 w-56 rounded-2xl bg-[#13111c] border border-white/10 shadow-2xl py-2 z-50">
+                <div class="px-4 py-3 border-b border-white/5 mb-2">
+                  <p class="text-white font-bold truncate">{{ user.username }}</p>
+                  <p class="text-gray-500 text-xs truncate">{{ user.email }}</p>
+                </div>
+                <a href="/accounts/logout/" class="flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                  Sign Out
+                </a>
+              </div>
             </div>
+          {% else %}
+            <a href="/accounts/google/login/" class="btn-primary px-4 py-2 rounded-lg text-white text-xs font-semibold flex items-center gap-2">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#fff"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#fff"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#fff"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#fff"/></svg>
+              Sign in with Google
+            </a>
           {% endif %}
-          <a href="/accounts/logout/" class="px-4 py-1.5 rounded-lg border border-purple-800/60 text-gray-400 hover:text-white hover:border-purple-600 transition-all text-xs">Sign Out</a>
-        {% else %}
-          <a href="/accounts/google/login/" class="btn-primary px-4 py-2 rounded-lg text-white text-xs font-semibold flex items-center gap-2">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#fff"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#fff"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#fff"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#fff"/></svg>
-            Sign in with Google
-          </a>
-        {% endif %}
+        </div>
       </div>
     </div>
   </nav>
@@ -114,8 +136,13 @@
     <div class="max-w-6xl mx-auto flex items-center justify-between gap-6">
       <!-- Song Info -->
       <div class="flex items-center gap-4 w-1/4">
-        <div class="w-12 h-12 rounded-xl btn-primary flex items-center justify-center glow-purple flex-shrink-0">
-          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+        <div class="w-12 h-12 rounded-xl bg-purple-900/40 border border-white/5 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-inner">
+          <template x-if="currentSong?.image_url">
+            <img :src="currentSong.image_url" class="w-full h-full object-cover">
+          </template>
+          <template x-if="!currentSong?.image_url">
+            <svg class="w-6 h-6 text-violet-400/50" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+          </template>
         </div>
         <div class="min-w-0">
           <p class="font-bold truncate text-sm" x-text="currentSong?.title"></p>
@@ -125,7 +152,16 @@
 
       <!-- Controls -->
       <div class="flex flex-col items-center gap-2 flex-1 max-w-xl">
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-8">
+          <!-- Skip Backward -->
+          <button @click="skipBackward" class="text-gray-400 hover:text-white transition-colors" title="Go back 15s">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12.5 3C17.15 3 21 6.85 21 11.5c0 4.65-3.85 8.5-8.5 8.5-2.03 0-3.89-.72-5.35-1.92l1.43-1.43C9.72 17.5 11.04 18 12.5 18c3.59 0 6.5-2.91 6.5-6.5S16.09 5 12.5 5c-1.61 0-3.1.59-4.26 1.57L11 9H5V3l2.09 2.09C8.58 3.81 10.46 3 12.5 3z"/>
+              <text x="12.5" y="14" font-size="6" text-anchor="middle" fill="currentColor" font-weight="bold">15</text>
+            </svg>
+          </button>
+
+          <!-- Play/Pause -->
           <button @click="togglePlay" class="w-12 h-12 rounded-full btn-primary flex items-center justify-center hover:scale-110 transition-transform shadow-lg group">
             <template x-if="!isPlaying">
               <svg class="w-6 h-6 text-white ml-1 opacity-90" fill="currentColor" viewBox="0 0 24 24">
@@ -137,6 +173,14 @@
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
               </svg>
             </template>
+          </button>
+
+          <!-- Skip Forward -->
+          <button @click="skipForward" class="text-gray-400 hover:text-white transition-colors" title="Forward 15s">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M11.5 3C6.85 3 3 6.85 3 11.5 3 16.15 6.85 20 11.5 20c2.03 0 3.89-.72 5.35-1.92l-1.43-1.43C14.28 17.5 12.96 18 11.5 18c-3.59 0-6.5-2.91-6.5-6.5S7.91 5 11.5 5c1.61 0 3.1.59 4.26 1.57L13 9h6V3l-2.09 2.09C15.42 3.81 13.54 3 11.5 3z"/>
+              <text x="11.5" y="14" font-size="6" text-anchor="middle" fill="currentColor" font-weight="bold">15</text>
+            </svg>
           </button>
         </div>
         <!-- Progress Bar -->
@@ -197,6 +241,16 @@
             audio.pause();
             this.isPlaying = false;
           }
+        },
+
+        skipForward() {
+          const audio = document.getElementById('globalAudio');
+          audio.currentTime = Math.min(audio.duration, audio.currentTime + 15);
+        },
+
+        skipBackward() {
+          const audio = document.getElementById('globalAudio');
+          audio.currentTime = Math.max(0, audio.currentTime - 15);
         },
 
         updateProgress(e) {

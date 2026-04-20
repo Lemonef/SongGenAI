@@ -138,20 +138,16 @@
         </div>
       </div>
 
-      <!-- Audio Player -->
-      <div x-show="song && song.audio_url" class="mb-6">
-        <audio controls class="w-full rounded-xl" :src="song && song.audio_url" style="filter:hue-rotate(250deg)">
-          Your browser does not support audio.
-        </audio>
-      </div>
-
-      <div class="flex gap-3">
-        <button @click="reset" class="flex-1 py-3 rounded-xl border border-purple-800 text-gray-300 hover:text-white hover:border-purple-600 transition-all text-sm font-medium">
+      <!-- Listen Now / Action -->
+      <div class="flex gap-4">
+        <button @click="reset" class="flex-1 py-4 rounded-xl border border-purple-800 text-gray-300 hover:text-white hover:border-purple-600 transition-all text-sm font-semibold">
           Generate Another
         </button>
-        <a :href="`/playback/?song_id=${song && song.song_id}`" class="flex-1 btn-primary py-3 rounded-xl text-sm font-medium text-center">
-          Open in Player
-        </a>
+        <button @click="$dispatch('play-song', { id: song.song_id, title: song.song_title, creator_name: song.creator_name, audio_url: song.audio_url, image_url: song.image_url })"
+                class="flex-1 btn-primary py-4 rounded-xl text-sm font-bold shadow-lg flex items-center justify-center gap-2">
+          <svg class="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"/></svg>
+          Listen Now
+        </button>
       </div>
     </div>
   </div>
@@ -241,6 +237,16 @@ function songGen() {
           if (data.status === 'SUCCESS') {
             clearInterval(this.pollTimer);
             this.state = 'success';
+            // Auto-play in global player
+            this.$nextTick(() => {
+              this.$dispatch('play-song', { 
+                id: this.song.song_id, 
+                title: this.song.song_title, 
+                creator_name: this.song.creator_name, 
+                audio_url: this.song.audio_url, 
+                image_url: this.song.image_url 
+              });
+            });
           } else if (data.status === 'FAILED') {
             // robustness: double-check check one more time after a short delay
             // in case of a status race condition

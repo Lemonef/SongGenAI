@@ -45,6 +45,7 @@ def default_song_history(request):
                 "title": song.title,
                 "duration_seconds": song.duration_seconds,
                 "audio_url": song.audio_url,
+                "image_url": song.image_url,
                 "creator_name": song.creator.name,
             }
             for song in songs
@@ -102,6 +103,7 @@ def library_detail(request, library_id):
                 "title": song.title,
                 "duration_seconds": song.duration_seconds,
                 "audio_url": song.audio_url,
+                "image_url": song.image_url,
                 "creator_name": song.creator.name,
             }
             for song in songs
