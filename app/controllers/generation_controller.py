@@ -7,8 +7,9 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 
-from app.models import Creator, Form, Song
+from app.models import Form, Song
 from app.services.generation_service import generate_song_from_form
+from app.strategies.exceptions import SunoOfflineError, SunoInsufficientCreditsError
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,24 @@ def create_form_and_song(request):
         )
 
         is_public = request.POST.get("is_public", "true").lower() == "true"
-        song = generate_song_from_form(form)
+        use_mock = request.POST.get("force_mock", "false").lower() == "true"
+        
+        # Credit Check (Only if not forcing mock)
+        if not use_mock and creator.credit_balance <= 0:
+            return JsonResponse({
+                "status": "insufficient_credits",
+                "message": "You have run out of credits. Would you like to use a Mock Song for free?"
+            })
+
+        try:
+            song = generate_song_from_form(form, use_mock=use_mock)
+        except SunoOfflineError:
+            return JsonResponse({"status": "suno_offline"})
+        except SunoInsufficientCreditsError:
+            return JsonResponse({"status": "suno_no_credits"})
+        except Exception as e:
+            logger.warning(f"Suno generation failed: {str(e)}")
+            return JsonResponse({"status": "suno_error"})
         song.is_public = is_public
         song.save(update_fields=["is_public"])
 
@@ -72,6 +90,7 @@ def get_song_status(request, song_id):
         "status": song.status,
         "audio_url": song.audio_url,
         "image_url": song.image_url,
+        "duration_seconds": song.duration_seconds,
         "creator_name": song.creator.name,
         "task_id": song.task_id,
     })

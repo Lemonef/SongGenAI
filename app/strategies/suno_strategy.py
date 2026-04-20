@@ -4,6 +4,7 @@ import threading
 from django.conf import settings
 
 from .base import SongGeneratorStrategy
+from .exceptions import SunoOfflineError, SunoInsufficientCreditsError
 from app.models.song import Song
 from app.models.credit_transaction import CreditTransaction
 
@@ -78,12 +79,27 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                 headers=self._headers(),
                 timeout=30,
             )
-            response.raise_for_status()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            raise SunoOfflineError("Cannot reach Suno API — check your internet connection.")
         except requests.exceptions.RequestException as e:
-            raise ValueError(
-                f"Suno API request failed: {e}. Status: {getattr(response, 'status_code', 'unknown')}"
-            )
-        
+            raise ValueError(f"Suno API request failed: {e}")
+
+        if response.status_code == 402:
+            raise SunoInsufficientCreditsError("Suno API credits are exhausted.")
+
+        try:
+            resp_data = response.json()
+            msg = (str(resp_data.get("message", "") or "") + str(resp_data.get("error", "") or "")).lower()
+            if any(k in msg for k in ("credit", "insufficient", "balance", "quota")):
+                raise SunoInsufficientCreditsError("Suno API credits are exhausted.")
+        except (ValueError, AttributeError):
+            pass
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            raise ValueError(f"Suno API request failed: {e}. Status: {response.status_code}")
+
         data = response.json()
         task_id = (data.get("data") or {}).get("taskId") or data.get("taskId")
         if not task_id:

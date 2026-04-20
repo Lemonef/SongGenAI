@@ -7,6 +7,7 @@ class MockSongGeneratorStrategy(SongGeneratorStrategy):
     PLACEHOLDER_AUDIO_URL = (
         "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
     )
+    PLACEHOLDER_AUDIO_DURATION = 229  # actual duration of SoundHelix-Song-1.mp3
 
     def generate(self, form) -> Song:
         if hasattr(form, "song"):
@@ -16,7 +17,7 @@ class MockSongGeneratorStrategy(SongGeneratorStrategy):
             creator=form.creator,
             form=form,
             title=form.requested_title or f"Generated Song {form.id}",
-            duration_seconds=form.requested_duration_seconds or 30,
+            duration_seconds=self.PLACEHOLDER_AUDIO_DURATION,
             audio_url=self.PLACEHOLDER_AUDIO_URL,
             status="SUCCESS",
         )
