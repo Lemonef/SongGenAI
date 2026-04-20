@@ -58,6 +58,8 @@ build/
 .gemini/
 ANTIGRAVITY.md
 CLAUDE.md
+.mcp.json
+.serena/
 
 # Ignoring all Markdown files except README
 *.md
