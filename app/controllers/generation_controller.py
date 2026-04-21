@@ -41,8 +41,11 @@ def create_form_and_song(request):
         )
 
         is_public = request.POST.get("is_public", "true").lower() == "true"
-        use_mock = request.POST.get("force_mock", "false").lower() == "true"
-        
+        force_mock = request.POST.get("force_mock", "false").lower() == "true"
+        from django.conf import settings
+        env_is_mock = getattr(settings, "GENERATOR_STRATEGY", "mock").lower() != "suno"
+        use_mock = force_mock or env_is_mock
+
         # Credit Check (Only if not forcing mock)
         if not use_mock and creator.credit_balance <= 0:
             return JsonResponse({
