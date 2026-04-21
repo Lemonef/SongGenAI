@@ -88,19 +88,19 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
             raise SunoInsufficientCreditsError("Suno API credits are exhausted.")
 
         try:
-            resp_data = response.json()
-            msg = (str(resp_data.get("message", "") or "") + str(resp_data.get("error", "") or "")).lower()
-            if any(k in msg for k in ("credit", "insufficient", "balance", "quota")):
-                raise SunoInsufficientCreditsError("Suno API credits are exhausted.")
-        except (ValueError, AttributeError):
-            pass
-
-        try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             raise ValueError(f"Suno API request failed: {e}. Status: {response.status_code}")
 
         data = response.json()
+
+        credit_keywords = ("credit", "insufficient", "balance", "quota")
+        combined_msg = " ".join(
+            str(data.get(k) or "") for k in ("msg", "message", "error")
+        ).lower()
+        if data.get("code") == 429 or any(k in combined_msg for k in credit_keywords):
+            raise SunoInsufficientCreditsError("Suno API credits are exhausted.")
+
         task_id = (data.get("data") or {}).get("taskId") or data.get("taskId")
         if not task_id:
             raise ValueError(f"No taskId in Suno response: {data}")
