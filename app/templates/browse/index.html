@@ -217,6 +217,11 @@ function browseView() {
       this.saving = false;
     },
   
+    showToast(msg) {
+      this.toast = msg;
+      setTimeout(() => { this.toast = ''; }, 3000);
+    },
+
     formatTime(sec) {
       if (!sec) return '0:00';
       const m = Math.floor(sec / 60);
