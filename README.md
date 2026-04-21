@@ -1,10 +1,9 @@
 # SongGenAI
 
-SongGenAI is a Django-based domain layer prototype for an AI song generation platform.  
-This project focuses on modeling the core business entities and relationships of the system, including song generation requests, generated songs, libraries, sharing, users, and credit transactions.
+SongGenAI is a Django-based AI song generation platform.  
+The system supports real song generation via the Suno API and a mock offline strategy for development and testing.
 
-This implementation was developed for **Exercise 3: Domain Layer Implementation Using Django**.  
-The focus of this project is on **domain modeling and persistence** using Django ORM rather than UI design or real AI generation integration.
+This implementation was developed for **Exercise 4: Apply Strategy Pattern for Song Generation**, building on the domain layer from Exercise 3.
 
 ---
 
@@ -12,32 +11,32 @@ The focus of this project is on **domain modeling and persistence** using Django
 
 The system supports the following core flow:
 
-1. A **Creator** submits a **Form** as a song generation request.
-2. The system creates a mock **Song** from that form.
-3. Generated songs belong to the creator and collectively represent the creator’s song history.
-4. A creator can organize selected songs into one or more **Libraries**.
-5. A song can be **shared** through a generated token and share link.
-6. Credit usage is recorded through **CreditTransaction**.
+1. A **Creator** registers and logs in via Google OAuth.
+2. The creator submits a **Form** (prompt, genre, mood, title, duration).
+3. The system generates a **Song** using the active strategy (mock or Suno API).
+4. Generated songs are shown in the creator's **Song Manager** with status tracking.
+5. Songs can be organized into **Libraries**, shared via token links, and toggled public/private.
+6. Public songs appear on the **Browse** page for all users.
+7. Credit usage is recorded through **CreditTransaction** on every generation.
 
 ---
 
 ## Main Features
 
-- Django ORM domain modeling
-- Data persistence with SQLite
-- Relationships between domain entities
-- Mock song generation from forms
-- Song management and library organization
-- Share token generation for songs
+- **Strategy Pattern** for song generation (mock vs Suno API, swappable via env var)
+- **Mock strategy** — offline, deterministic, no API calls required
+- **Suno API strategy** — real AI generation via SunoApi.org with callback support
+- Google OAuth authentication
+- Full frontend UI (Django Templates, Tailwind CSS, Alpine.js)
+- Browse page for public songs
+- Song manager: history, libraries, visibility toggle, share links, download
 - Credit transaction tracking
-- Django admin support for CRUD operations
-- Basic route/controller/service structure for future extension beyond admin
+- Global audio player with playback controls
+- Django admin support
 
 ---
 
 ## Domain Entities
-
-The main domain entities in this project are:
 
 - **Creator**
 - **Listener**
@@ -46,12 +45,11 @@ The main domain entities in this project are:
 - **Library**
 - **Share**
 - **CreditTransaction**
+- **UserProfile**
 
 ---
 
 ## Domain Relationships
-
-The current design uses the following relationships:
 
 - One **Creator** can have many **Forms**
 - One **Creator** can have many **Songs**
@@ -70,41 +68,54 @@ The current design uses the following relationships:
 project_root/
 ├── app/
 │   ├── controllers/
+│   │   ├── browse_controller.py
 │   │   ├── generation_controller.py
 │   │   ├── playback_controller.py
 │   │   ├── song_manager_controller.py
 │   │   └── user_controller.py
 │   │
 │   ├── models/
-│   │   ├── __init__.py
 │   │   ├── creator.py
 │   │   ├── credit_transaction.py
 │   │   ├── form.py
 │   │   ├── library.py
 │   │   ├── listener.py
 │   │   ├── share.py
-│   │   └── song.py
+│   │   ├── song.py
+│   │   └── user_profile.py
 │   │
 │   ├── routes/
-│   │   ├── __init__.py
+│   │   ├── browse_urls.py
 │   │   ├── generation_urls.py
 │   │   ├── manager_urls.py
 │   │   ├── playback_urls.py
 │   │   └── user_urls.py
 │   │
 │   ├── services/
-│   │   ├── __init__.py
 │   │   ├── generation_service.py
 │   │   ├── playback_service.py
 │   │   ├── song_manager_service.py
 │   │   └── user_service.py
 │   │
-│   ├── migrations/
-│   │   └── ...
+│   ├── strategies/                   ← Strategy Pattern 
+│   │   ├── base.py                   ← Abstract interface
+│   │   ├── factory.py                ← Centralized strategy selection
+│   │   ├── mock_strategy.py          ← Offline mock implementation
+│   │   ├── suno_strategy.py          ← Suno API implementation
+│   │   └── exceptions.py
 │   │
-│   ├── admin.py
-│   ├── apps.py
-│   └── tests.py
+│   ├── templates/
+│   │   ├── base.html
+│   │   ├── home.html
+│   │   ├── browse/
+│   │   ├── generation/
+│   │   ├── manager/
+│   │   ├── user/
+│   │   ├── account/                  ← Auth pages
+│   │   └── errors/
+│   │
+│   ├── migrations/
+│   └── ...
 │
 ├── config/
 │   ├── settings.py
@@ -113,7 +124,6 @@ project_root/
 │   └── wsgi.py
 │
 ├── .gitignore
-├── LICENSE
 ├── manage.py
 └── README.md
 ```
@@ -151,286 +161,190 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Apply migrations
+### 4. Create a `.env` file
+
+Copy the provided template and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+```env
+GENERATOR_STRATEGY=mock
+SUNO_API_KEY=your_api_key_here
+SUNO_CALLBACK_URL=https://your-ngrok-url/generation/suno/callback/
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+```
+
+Never commit `.env` — it contains secrets. Only `.env.example` is committed.
+
+### 4a. Google OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project → **APIs & Services** → **Credentials**
+3. Click **Create Credentials** → **OAuth 2.0 Client ID**
+4. Application type: **Web application**
+5. Add to **Authorized redirect URIs**:
+   ```
+   http://127.0.0.1:8000/accounts/google/login/callback/
+   ```
+6. Copy the **Client ID** and **Client Secret** into your `.env`
+7. After running the server, go to `http://127.0.0.1:8000/admin/` → **Sites** → change `example.com` to `127.0.0.1:8000`
+
+### 5. Apply migrations
 
 ```bash
 python manage.py migrate
 ```
 
-### 5. Create a superuser
+### 6. Create a superuser
 
 ```bash
 python manage.py createsuperuser
 ```
 
-### 6. Run the application
+### 7. Run the application
 
 ```bash
 python manage.py runserver
 ```
 
-### 7. Open the application
+### 8. Open the application
 
 * Main page: `http://127.0.0.1:8000/`
 * Admin page: `http://127.0.0.1:8000/admin/`
 
 ---
 
-## Supporting Configuration Files
+## Strategy Pattern: Song Generation
 
-The project includes the following supporting configuration files required to run the application:
+This project implements the **Strategy design pattern** to allow swappable song generation behavior without modifying controllers or services.
 
-* `config/settings.py` — Django project settings
-* `config/urls.py` — main URL configuration
-* `config/asgi.py` — ASGI entry point
-* `config/wsgi.py` — WSGI entry point
-* `.gitignore` — ignored local/system files
-* `manage.py` — Django management entry point
+### Strategy Interface
 
----
+Defined in `app/strategies/base.py`:
 
-## CRUD Functionality
-
-CRUD functionality in this project was demonstrated primarily through the **Django Admin panel**, which provides an interface for managing the implemented domain entities.
-
-The following operations were tested:
-
-### Create
-
-New records were created for the main entities, including **Creator**, **Listener**, **Form**, **Song**, **Library**, **Share**, and **CreditTransaction**.
-
-### Read
-
-Stored records were viewed in the Django Admin panel to confirm that data was correctly saved in the database and that relationships between entities were maintained correctly.
-
-### Update
-
-Existing records were modified through the admin interface, such as editing creator information, updating form details, modifying song data, and changing library contents.
-
-### Delete
-
-Records were deleted from the admin interface to verify that entities could be removed correctly from the database.
-
-### Relationship Validation
-
-The CRUD process also confirmed that the main domain relationships work as expected, such as:
-
-* a **Creator** owning multiple **Forms**, **Songs**, **Libraries**, and **CreditTransactions**
-* a **Form** generating a **Song**
-* a **Library** containing multiple **Songs**
-* a **Song** having multiple **Shares**
-
-This demonstrates that the project supports the required persistence and basic CRUD operations for the domain layer implementation.
-
----
-
-## Evidence of CRUD Functionality
-
-The following screenshots from the Django Admin panel demonstrate CRUD operations and relationship validation.
-
-### Create
-
-**Create Creator**
-![Create Creator Form](screenshots/create_creator1.png)
-
-**Creator Created Successfully**
-![Creator Created Successfully](screenshots/create_creator2.png)
-
-**Create Form**
-![Create Form](screenshots/create_form1.png)
-
-**Form Created Successfully**
-![Form Created Successfully](screenshots/create_form2.png)
-
-**Create Song from Form**
-![Create Song from Form](screenshots/form_create_song1.png)
-
-**Credit Deduction After Form Submission**
-![Credit Deduction](screenshots/form_deduct_credit1.png)
-
-**Create Library**
-![Create Library](screenshots/create_library1.png)
-
-**Library Created**
-![Library Created](screenshots/create_library2.png)
-
-**Create Share**
-![Create Share](screenshots/create_share_song1.png)
-
-### Read
-
-**Song List**
-![Song List](screenshots/form_create_song1.png)
-
-**Library List**
-![Library List](screenshots/create_library2.png)
-
-### Update
-
-**Update Song**
-![Update Song](screenshots/update_song1.png)
-
-**Update Library**
-![Update Library](screenshots/update_library1.png)
-
-### Delete
-
-**Delete Song - Step 1**
-![Delete Song Step 1](screenshots/delete_song1.png)
-
-**Delete Song - Confirmation**
-![Delete Song Confirmation](screenshots/delete_song2.png)
-
-**Delete Song - Result**
-![Delete Song Result](screenshots/delete_song3.png)
-
----
-
-## Basic Route / API Structure
-
-The application also includes a simple route/controller/service structure for future extension beyond Django Admin.
-
-Current route groups include:
-
-* `/generation/`
-* `/playback/`
-* `/manager/`
-* `/user/`
-
-Example operations supported by the current structure include:
-
-* creating a form and mock song
-* viewing creator song history
-* viewing library contents
-* adding songs to a library
-* removing songs from a library
-* viewing creator credit balance
-* mock playback information
-
----
-
-## Simple Custom API / View Implementation
-
-In addition to Django Admin, this project also implements simple custom controller-based API endpoints to demonstrate functionality outside the admin interface.
-
-These endpoints provide basic examples of custom views for managing songs, libraries, shares, and user-related information.
-
-Implemented examples include:
-
-- `POST /generation/create/`  
-  Creates a new `Form` and generates a mock `Song`
-
-- `GET /manager/history/<creator_id>/`  
-  Returns the creator’s generated song history
-
-- `GET /manager/library/<library_id>/`  
-  Returns the songs currently stored in a library
-
-- `POST /manager/library/<library_id>/add-song/<song_id>/`  
-  Adds a selected song into a library
-
-- `POST /manager/library/<library_id>/remove-song/<song_id>/`  
-  Removes a song from a library
-
-- `POST /manager/song/<song_id>/share/`  
-  Creates a share token and share link for a song
-
-- `GET /manager/song/<song_id>/shares/`  
-  Returns all shares belonging to a song
-
-- `GET /manager/share/<token>/`  
-  Opens a shared song using the generated token
-
-- `GET /user/balance/<creator_id>/`  
-  Returns the current credit balance of a creator
-
-These endpoints demonstrate that the project is not limited to Django Admin only and includes a simple custom API/view layer as part of the implementation.
-
----
-
-## Example Endpoint Documentation
-
-### Create Form and Mock Song
-
-* **URL:** `/generation/create/`
-* **Method:** `POST`
-
-#### Example Request Body
-
-```json
-{
-  "creator_id": 1,
-  "prompt": "Energetic rock song",
-  "genre": "Rock",
-  "mood": "Excited",
-  "requested_title": "Fire Run",
-  "requested_duration_seconds": 30
-}
+```python
+class SongGeneratorStrategy(ABC):
+    @abstractmethod
+    def generate(self, form) -> Song:
+        ...
 ```
 
-#### Example Response Body
+Both strategies implement this same interface.
+
+---
+
+### Running in Mock Mode (Offline)
+
+Set in your `.env` file:
+
+```env
+GENERATOR_STRATEGY=mock
+```
+
+Then restart the server. Mock mode produces a deterministic song with a fixed placeholder audio URL. No API key or internet connection required.
+
+**Example output:**
 
 ```json
 {
   "message": "Song created successfully",
-  "form_id": 1,
-  "song_id": 1,
+  "song_title": "Generated Song 1",
+  "status": "SUCCESS",
+  "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+  "duration_seconds": 229
+}
+```
+
+---
+
+### Running in Suno Mode (Live API)
+
+Set in your `.env` file:
+
+```env
+GENERATOR_STRATEGY=suno
+SUNO_API_KEY=your_api_key_here
+SUNO_CALLBACK_URL=https://your-ngrok-url/generation/suno/callback/
+```
+
+Then restart the server. Suno mode calls `POST https://api.sunoapi.org/api/v1/generate`, stores the returned `taskId`, and updates the song when the callback resolves.
+
+**Example output (initial response):**
+
+```json
+{
+  "message": "Song created successfully",
   "song_title": "Fire Run",
-  "duration_seconds": 30
+  "status": "PENDING",
+  "task_id": "abc123xyz",
+  "audio_url": null
 }
 ```
 
-### View Creator Song History
+Once generation completes, song status updates to `SUCCESS` with a real `audio_url`.
 
-* **URL:** `/manager/history/<creator_id>/`
-* **Method:** `GET`
+---
 
-#### Example Response Body
+### API Key Setup
 
-```json
-{
-  "creator": "Alice",
-  "songs": [
-    {
-      "id": 1,
-      "title": "Fire Run",
-      "duration_seconds": 30
-    }
-  ]
-}
+The Suno API key must **never be committed** to the repository.
+
+1. Create a `.env` file in the project root (already listed in `.gitignore`)
+2. Add your key: `SUNO_API_KEY=your_key_here`
+3. Obtain a key from [sunoapi.org](https://sunoapi.org)
+
+Settings reads it via:
+
+```python
+SUNO_API_KEY = os.environ.get("SUNO_API_KEY", "")
 ```
 
-### View Creator Credit Balance
+---
 
-* **URL:** `/user/balance/<creator_id>/`
-* **Method:** `GET`
+### Strategy Selection
 
-#### Example Response Body
+Selection is centralized in `app/strategies/factory.py`:
 
-```json
-{
-  "creator": "Alice",
-  "credit_balance": 9
-}
+```python
+def get_generator_strategy() -> SongGeneratorStrategy:
+    strategy_name = getattr(settings, "GENERATOR_STRATEGY", "mock").lower()
+    if strategy_name == "suno":
+        return SunoSongGeneratorStrategy()
+    return MockSongGeneratorStrategy()
 ```
+
+No `if/else` logic is scattered through controllers or services.
+
+---
+
+## Route Structure
+
+| Prefix | Routes |
+|--------|--------|
+| `/` | Home page |
+| `/browse/` | Public song browse page |
+| `/generation/` | Song generation form, status polling, Suno callback |
+| `/manager/` | Song history, libraries, shares, visibility, duration |
+| `/playback/` | Global player song data |
+| `/user/` | Onboarding, credit balance |
+| `/accounts/` | Google OAuth login/logout |
 
 ---
 
 ## Mock Song Generation
 
-This project does **not** integrate actual AI song generation yet.
+When `GENERATOR_STRATEGY=mock`, the system generates a deterministic `Song` using a fixed placeholder audio URL and marks it `SUCCESS` immediately. No external API is called.
 
-Instead, when a **Form** is created, the system can generate a **mock Song object** using service-layer logic.
-This allows the domain layer and persistence behavior to be tested without integrating an external AI model.
+This allows full end-to-end testing without a Suno API key or network access.
 
 ---
 
 ## Share Logic
 
-Each **Share** stores an auto-generated token.
-The application derives a shareable link from that token rather than storing the full URL directly in the database.
-
-This keeps the design cleaner and avoids duplicated URL data.
+Each **Share** stores an auto-generated UUID token. The application derives a shareable link from that token rather than storing the full URL in the database.
 
 ---
 
@@ -438,42 +352,34 @@ This keeps the design cleaner and avoids duplicated URL data.
 
 Credits are tracked using **CreditTransaction** rather than a simple balance field.
 
-Supported transaction types include:
+Supported transaction types:
 
 * `ADD`
 * `DEDUCT`
 * `REFUND`
 
-This makes the credit system easier to audit and closer to real-world transaction history behavior.
-
 ---
 
 ## Notes
 
-* This project focuses on the **domain layer and persistence**
-* Authentication is not implemented yet
-* Real AI generation is not implemented yet
-* Frontend UI is not implemented yet
-* Playback is currently mocked/simplified
-* Django Admin is currently the main CRUD interface
+* Authentication implemented via Google OAuth (django-allauth)
+* Real AI generation implemented via Suno API strategy
+* Frontend UI implemented with Django Templates, Tailwind CSS, and Alpine.js
+* Strategy selection controlled entirely by `GENERATOR_STRATEGY` env var
+* `.env` file must never be committed — it contains secrets
 
 ---
 
 ## Future Improvements
 
-* Google OAuth / authentication
-* Real AI song generation integration
-* Better frontend UI
-* Better playback state management
-* Download support
 * Listener access tracking for shared songs
 * Expanded API documentation
-* More complete custom views outside Django Admin
+* More granular credit pricing per generation length
 
 ---
 
 ## Author
 
-Name: `Sudha Sutaschuto`
-Course: Software Engineering
-Exercise: **Exercise 3 – Implementing the Domain Layer Using Django**
+Name: `Sudha Sutaschuto`  
+Course: Software Engineering  
+Exercise: **Exercise 4 – Apply Strategy Pattern for Song Generation**
