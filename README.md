@@ -286,6 +286,16 @@ Then restart the server. Suno mode calls `POST https://api.sunoapi.org/api/v1/ge
 
 Once generation completes, song status updates to `SUCCESS` with a real `audio_url`.
 
+#### Ngrok Setup (required for Suno callbacks on localhost)
+
+1. Download and install [ngrok](https://ngrok.com/download)
+2. Run: `ngrok http 8000`
+3. Copy the generated HTTPS URL (e.g. `https://abc123.ngrok-free.app`)
+4. Set in `.env`: `SUNO_CALLBACK_URL=https://abc123.ngrok-free.app/generation/suno/callback/`
+5. Restart the Django server
+
+> Note: ngrok URL changes every session unless you have a paid static domain.
+
 ---
 
 ### API Key Setup
