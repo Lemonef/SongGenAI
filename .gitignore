@@ -58,6 +58,9 @@ build/
 # Mermaid source files (local only)
 mermaid/
 
+# Claude Code local settings
+.claude/
+
 # AI Tool Metadata
 .gemini/
 ANTIGRAVITY.md
