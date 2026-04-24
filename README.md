@@ -132,7 +132,26 @@ project_root/
 
 ## Class Diagram
 
-![SongGenAI Class Diagram](SongGenAI%20Class%20diagram.png)
+![SongGenAI Class Diagram](diagrams/SongGenAI%20Class%20diagram.png)
+
+---
+
+## Sequence Diagrams
+
+### Onboarding
+![Onboarding](diagrams/seq_onboarding.png)
+
+### Song Generation — Request
+![Generation Request](diagrams/seq_generation_request.png)
+
+### Song Generation — Async Completion
+![Generation Async](diagrams/seq_generation_async.png)
+
+### Song Manager
+![Song Manager](diagrams/seq_manager.png)
+
+### Browse & Playback
+![Browse Playback](diagrams/seq_browse_playback.png)
 
 ---
 
