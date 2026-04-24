@@ -1,0 +1,34 @@
+sequenceDiagram
+    actor User
+    participant Browser
+    participant UserController
+    participant DB as SQLite DB
+
+    User->>Browser: Visit site (unauthenticated)
+    Browser->>Browser: Redirect to /accounts/login/
+
+    User->>Browser: Click "Login with Google"
+    Browser->>Browser: Google OAuth flow (django-allauth)
+    Browser->>DB: Django User created/retrieved
+
+    Browser->>UserController: GET /user/onboarding/
+    UserController->>DB: Check UserProfile exists?
+
+    alt Profile already exists
+        UserController-->>Browser: Redirect to /generation/ or /browse/
+    else No profile yet
+        UserController-->>Browser: Render onboarding.html (choose role)
+
+        User->>Browser: Select role (Creator or Listener)
+        Browser->>UserController: POST /user/onboarding/ { role }
+
+        alt role = CREATOR
+            UserController->>DB: Create UserProfile (role=CREATOR)
+            UserController->>DB: Create Creator record
+            UserController-->>Browser: Redirect to /generation/
+        else role = LISTENER
+            UserController->>DB: Create UserProfile (role=LISTENER)
+            UserController->>DB: Create Listener record
+            UserController-->>Browser: Redirect to /browse/
+        end
+    end

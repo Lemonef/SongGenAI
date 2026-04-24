@@ -1,0 +1,36 @@
+sequenceDiagram
+    actor User
+    participant Browser
+    participant BrowseController
+    participant PlaybackController
+    participant PlaybackService
+    participant UserController
+    participant DB as SQLite DB
+
+    %% Browse
+    User->>Browser: Visit /browse/
+    Browser->>BrowseController: GET /browse/
+    BrowseController->>DB: Song.filter(is_public=True, status=SUCCESS).order_by(-created_at)
+    BrowseController-->>Browser: Render browse/index.html with songs
+
+    alt Search query entered
+        User->>Browser: Type search query
+        Browser->>BrowseController: GET /browse/?q=query
+        BrowseController->>DB: Song.filter(is_public=True, status=SUCCESS, title__icontains=query)
+        BrowseController-->>Browser: Render filtered song list
+    end
+
+    %% Playback
+    User->>Browser: Click play on a song
+    Browser->>PlaybackController: GET /playback/play/<song_id>/
+    PlaybackController->>PlaybackService: get_song_playback_info(song_id)
+    PlaybackService->>DB: Song.objects.get(id=song_id)
+    PlaybackService-->>PlaybackController: { song_id, title, audio_url, duration_seconds, status }
+    PlaybackController-->>Browser: JSON { playback metadata }
+    Browser->>User: Audio player loads and plays song
+
+    %% Credit Balance Check
+    User->>Browser: View credit balance (Creator only)
+    Browser->>UserController: GET /user/balance/<creator_id>/
+    UserController->>DB: Aggregate CreditTransactions (ADD - DEDUCT + REFUND)
+    UserController-->>Browser: JSON { creator_name, credit_balance }
