@@ -130,6 +130,12 @@ project_root/
 
 ---
 
+## Class Diagram
+
+![SongGenAI Class Diagram](SongGenAI%20Class%20diagram.png)
+
+---
+
 ## Installation and Setup
 
 ### 1. Clone the repository
