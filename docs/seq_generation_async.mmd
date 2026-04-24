@@ -1,0 +1,44 @@
+sequenceDiagram
+    actor Creator
+    participant Browser
+    participant GenController as GenerationController
+    participant SunoAPI as Suno AI API
+    participant DB as SQLite DB
+    participant BgThread as Background Thread
+
+    note over Browser,DB: Song is PENDING in DB. Three async paths race to update it.
+
+    %% Path 1 — Client polls status
+    loop Every few seconds (frontend JS)
+        Browser->>GenController: GET /generation/status/<song_id>/
+        GenController->>DB: Fetch Song by id
+        GenController-->>Browser: JSON { status, audio_url, duration_seconds }
+        alt status = SUCCESS
+            Browser->>Creator: Show audio player
+        end
+    end
+
+    %% Path 2 — Background thread polls Suno API
+    loop Every 5s, max 60 polls
+        BgThread->>SunoAPI: GET /api/v1/generate/record-info?taskId=...
+        SunoAPI-->>BgThread: { status, audioUrl, imageUrl, duration }
+        BgThread->>DB: Update Song (status, audio_url, image_url, duration_seconds)
+        alt status = SUCCESS or FAILED
+            BgThread->>BgThread: Exit loop
+        end
+        alt max polls exceeded
+            BgThread->>DB: Update Song (status=FAILED)
+        end
+    end
+
+    %% Path 3 — Suno pushes webhook
+    SunoAPI->>GenController: POST /generation/suno/callback/
+    GenController->>DB: Find Song by task_id
+    alt audio_url found in payload
+        GenController->>DB: Update Song (audio_url, status=SUCCESS)
+    else FAILED in payload
+        GenController->>DB: Update Song (status=FAILED)
+    end
+    GenController-->>SunoAPI: JSON { song_id }
+
+    note over BgThread,SunoAPI: Whichever path fires first wins. All write same fields — no conflict.
