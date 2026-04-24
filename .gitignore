@@ -55,6 +55,9 @@ dist/
 build/
 *.egg-info/
 
+# Mermaid source files (local only)
+mermaid/
+
 # AI Tool Metadata
 .gemini/
 ANTIGRAVITY.md
