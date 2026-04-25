@@ -30,6 +30,7 @@ The system supports the following core flow:
 - Full frontend UI (Django Templates, Tailwind CSS, Alpine.js)
 - Browse page for public songs
 - Song manager: history, libraries, visibility toggle, share links, download
+- **Favourites** — both Creators and Listeners can heart songs; dedicated Favourites view in manager
 - Credit transaction tracking
 - Global audio player with playback controls
 - Django admin support
@@ -59,6 +60,7 @@ The system supports the following core flow:
 - One **Library** can contain many **Songs**
 - One **Song** can belong to many **Libraries**
 - One **Song** can have many **Shares**
+- One **UserProfile** can have many favourite **Songs** (and vice versa)
 
 ---
 
@@ -147,8 +149,14 @@ project_root/
 ### Song Generation — Async Completion
 ![Generation Async](diagrams/seq_generation_async.png)
 
-### Song Manager
+### Song Manager — Core
 ![Song Manager](diagrams/seq_manager.png)
+
+### Song Manager — Share
+![Song Manager Share](diagrams/seq_manager_share.png)
+
+### Song Manager — Favourites
+![Song Manager Favourites](diagrams/seq_manager_favourite.png)
 
 ### Browse & Playback
 ![Browse Playback](diagrams/seq_browse_playback.png)
