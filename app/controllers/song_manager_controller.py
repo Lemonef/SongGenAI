@@ -13,6 +13,9 @@ from app.services.song_manager_service import (
     get_song_shares,
     get_share_by_token,
     delete_share,
+    toggle_song_favorite,
+    get_user_favorite_ids,
+    get_user_favorite_songs,
 )
 import json
 
@@ -37,6 +40,7 @@ def default_song_history(request):
     
     creator = user.creator_profile
     songs = get_creator_song_history(creator)
+    fav_ids = set(get_user_favorite_ids(user.profile))
 
     return JsonResponse({
         "songs": [
@@ -50,6 +54,7 @@ def default_song_history(request):
                 "is_public": song.is_public,
                 "status": song.status,
                 "can_edit_visibility": (song.creator.user == user),
+                "is_favorited": song.id in fav_ids,
             }
             for song in songs
         ]
@@ -96,6 +101,7 @@ def library_detail(request, library_id):
     user = request.user
     library = get_object_or_404(Library, id=library_id, profile=user.profile)
     songs = get_library_songs(library_id)
+    fav_ids = set(get_user_favorite_ids(user.profile))
 
     return JsonResponse({
         "library_id": library.id,
@@ -111,6 +117,7 @@ def library_detail(request, library_id):
                 "is_public": song.is_public,
                 "status": song.status,
                 "can_edit_visibility": (song.creator.user == user),
+                "is_favorited": song.id in fav_ids,
             }
             for song in songs
         ]
@@ -266,3 +273,46 @@ def update_song_duration(request, song_id):
         return JsonResponse({"status": "unchanged"})
     except (ValueError, json.JSONDecodeError):
         return JsonResponse({"error": "Invalid duration data"}, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_favorite(request, song_id):
+    if not hasattr(request.user, 'profile'):
+        return JsonResponse({"error": "Profile not found."}, status=403)
+    is_fav = toggle_song_favorite(request.user.profile, song_id)
+    return JsonResponse({"is_favorited": is_fav})
+
+
+@login_required
+def get_user_favorites(request):
+    if not hasattr(request.user, 'profile'):
+        return JsonResponse({"error": "Profile not found."}, status=403)
+    return JsonResponse({"favorite_ids": get_user_favorite_ids(request.user.profile)})
+
+
+@login_required
+def get_favorite_songs(request):
+    if not hasattr(request.user, 'profile'):
+        return JsonResponse({"error": "Profile not found."}, status=403)
+    user = request.user
+    songs = get_user_favorite_songs(user.profile)
+    fav_ids = set(get_user_favorite_ids(user.profile))
+
+    return JsonResponse({
+        "songs": [
+            {
+                "id": song.id,
+                "title": song.title,
+                "duration_seconds": song.duration_seconds,
+                "audio_url": song.audio_url,
+                "image_url": song.image_url,
+                "creator_name": song.creator.name,
+                "is_public": song.is_public,
+                "status": song.status,
+                "can_edit_visibility": hasattr(user, 'creator_profile') and song.creator.user == user,
+                "is_favorited": song.id in fav_ids,
+            }
+            for song in songs
+        ]
+    })

@@ -16,8 +16,10 @@ def browse(request):
         songs = songs.filter(title__icontains=query)
         
     songs = songs.order_by('-created_at')
-    
+    favorite_ids = list(request.user.profile.favorites.values_list('id', flat=True)) if hasattr(request.user, 'profile') else []
+
     return render(request, 'browse/index.html', {
         'songs': songs,
-        'query': query
+        'query': query,
+        'favorite_ids': favorite_ids,
     })

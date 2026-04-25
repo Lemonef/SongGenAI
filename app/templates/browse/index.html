@@ -63,6 +63,13 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Add to Library
         </button>
+        <button @click="toggleFavorite({{ song.id }})" title="Favourite"
+                class="flex-none flex items-center justify-center px-3 py-3 rounded-2xl border transition-all"
+                :class="favoriteIds.has({{ song.id }}) ? 'border-pink-500/60 text-pink-400 bg-pink-500/10 hover:bg-pink-500/20' : 'border-purple-800/40 text-gray-400 hover:text-pink-400 hover:border-pink-500/40 hover:bg-pink-500/5'">
+          <svg class="w-4 h-4" :fill="favoriteIds.has({{ song.id }}) ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+          </svg>
+        </button>
         <button @click="downloadSong('{{ song.audio_url|escapejs }}', '{{ song.title|escapejs }}')" title="Download"
                 class="flex-none flex items-center justify-center px-3 py-3 rounded-2xl border border-purple-800/40 text-gray-400 hover:text-white hover:border-purple-600 hover:bg-purple-900/20 transition-all">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -156,6 +163,7 @@ function browseView() {
     newLibName: '',
     saving: false,
     toast: '',
+    favoriteIds: new Set({{ favorite_ids|safe }}),
 
     init() {
       this.fetchLibraries();
@@ -224,6 +232,24 @@ function browseView() {
     showToast(msg) {
       this.toast = msg;
       setTimeout(() => { this.toast = ''; }, 3000);
+    },
+
+    async toggleFavorite(songId) {
+      try {
+        const res = await fetch(`/manager/song/${songId}/toggle-favorite/`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCsrf() }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.is_favorited) {
+            this.favoriteIds.add(songId);
+          } else {
+            this.favoriteIds.delete(songId);
+          }
+          this.favoriteIds = new Set(this.favoriteIds);
+        }
+      } catch (e) { console.error(e); }
     },
 
     async downloadSong(audioUrl, title) {

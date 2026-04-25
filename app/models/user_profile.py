@@ -12,6 +12,7 @@ class UserProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    favorites = models.ManyToManyField('Song', related_name='favorited_by', blank=True)
 
     def is_creator(self):
         return self.role == self.CREATOR

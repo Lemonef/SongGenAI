@@ -31,7 +31,7 @@
       {% if user.profile.is_creator %}
       <button @click="loadHistory()"
         :class="currentView === 'history' ? 'bg-violet-600/20 text-violet-300 border-violet-500/30' : 'hover:bg-gray-800/50 text-gray-400 border-transparent'"
-        class="w-full text-left px-4 py-3 rounded-xl border font-medium mb-6 transition-all flex items-center gap-3">
+        class="w-full text-left px-4 py-3 rounded-xl border font-medium transition-all flex items-center gap-3">
         <svg class="w-5 h-5 opacity-70" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd"
             d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
@@ -40,6 +40,15 @@
         History
       </button>
       {% endif %}
+
+      <button @click="loadFavorites()"
+        :class="currentView === 'favorites' ? 'bg-pink-600/20 text-pink-300 border-pink-500/30' : 'hover:bg-gray-800/50 text-gray-400 border-transparent'"
+        class="w-full text-left px-4 py-3 rounded-xl border font-medium mb-6 transition-all flex items-center gap-3">
+        <svg class="w-5 h-5 opacity-70" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+        </svg>
+        Favourites
+      </button>
 
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-xs uppercase tracking-wider text-gray-500 font-bold">Your Libraries</h3>
@@ -103,7 +112,12 @@
           <a href="/generation/" class="btn-primary inline-block px-8 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-violet-900/40">Generate Song</a>
         </div>
 
-        <div x-show="!isCreator || currentView === 'library'">
+        <div x-show="currentView === 'favorites'">
+          <p class="text-gray-500 text-sm mb-6">Heart songs in Browse to save them here.</p>
+          <a href="/browse/" class="btn-primary inline-block px-8 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-violet-900/40">Browse Songs</a>
+        </div>
+
+        <div x-show="currentView === 'library' || (!isCreator && currentView !== 'favorites')">
           <p class="text-gray-500 text-sm mb-6">Discover amazing community tracks and add them here.</p>
           <a href="/browse/" class="btn-primary inline-block px-8 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-violet-900/40">Browse Songs</a>
         </div>
@@ -111,7 +125,7 @@
 
       <!-- Songs list -->
       <div x-show="!loading && songs.length > 0" class="space-y-3">
-        <h2 class="text-2xl font-bold mb-4" x-text="currentView === 'history' ? 'Your History' : currentLibrary.name">
+        <h2 class="text-2xl font-bold mb-4" x-text="currentView === 'history' ? 'Your History' : currentView === 'favorites' ? 'Favourites' : currentLibrary.name">
         </h2>
         <template x-for="song in songs" :key="song.id">
           <div class="card rounded-xl px-6 py-5 flex items-center gap-5 group transition-all"
@@ -185,10 +199,19 @@
             <!-- Pre-Actions -->
             <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" x-show="song.status === 'SUCCESS'">
               <!-- Add to Library (only show in History View) -->
-              <button x-show="currentView === 'history'" @click="openAddToLibrary(song)"
+              <button x-show="currentView === 'history' || currentView === 'favorites'" @click="openAddToLibrary(song)"
                 class="px-3 py-1.5 rounded-lg border border-purple-800 text-gray-400 hover:text-white hover:border-purple-600 text-xs font-medium transition-all"
                 title="Add to Library">
                 + Add to Library
+              </button>
+
+              <!-- Favourite Toggle -->
+              <button @click="toggleFavorite(song.id)" title="Favourite"
+                class="px-2 py-1.5 rounded-lg border transition-all"
+                :class="favoriteIds.has(song.id) ? 'border-pink-500/60 text-pink-400 bg-pink-500/10' : 'border-purple-800 text-gray-400 hover:text-pink-400 hover:border-pink-500/40'">
+                <svg class="w-3.5 h-3.5" :fill="favoriteIds.has(song.id) ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                </svg>
               </button>
 
               <!-- Remove from Library (only show in Library View) -->
@@ -355,7 +378,8 @@
     libraries: [],
     songs: [],
     loading: false,
-    
+    favoriteIds: new Set(),
+
     currentView: config.isCreator ? 'history' : 'library',
     currentLibrary: null,
 
@@ -374,12 +398,20 @@
     libToDelete: null,
 
     async init() {
-      await this.fetchLibraries();
+      await Promise.all([this.fetchLibraries(), this.fetchFavorites()]);
       if (this.libraries.length > 0 && !this.isCreator) {
           this.loadLibrary(this.libraries[0]);
       } else if (this.isCreator) {
           await this.loadHistory();
       }
+    },
+
+    async fetchFavorites() {
+      try {
+        const res = await fetch('/manager/favorites/');
+        const data = await res.json();
+        this.favoriteIds = new Set(data.favorite_ids || []);
+      } catch (e) { console.error("Failed to fetch favorites", e); }
     },
 
     async fetchLibraries() {
@@ -434,6 +466,21 @@
     }
     this.loading = false;
   },
+
+    async loadFavorites() {
+      this.currentView = 'favorites';
+      this.currentLibrary = null;
+      this.loading = true;
+      this.songs = [];
+      try {
+        const res = await fetch('/manager/favorites/songs/');
+        const data = await res.json();
+        this.songs = data.songs || [];
+      } catch (e) {
+        console.error("Failed to load favorites", e);
+      }
+      this.loading = false;
+    },
 
     async loadLibrary(lib) {
     this.currentView = 'library';
@@ -567,6 +614,24 @@
     } catch {
       window.open(song.audio_url, '_blank');
     }
+  },
+
+  async toggleFavorite(songId) {
+    try {
+      const res = await fetch(`/manager/song/${songId}/toggle-favorite/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf() }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.is_favorited) {
+          this.favoriteIds.add(songId);
+        } else {
+          this.favoriteIds.delete(songId);
+        }
+        this.favoriteIds = new Set(this.favoriteIds);
+      }
+    } catch (e) { console.error(e); }
   },
 
   async createAndSaveFromHistory() {

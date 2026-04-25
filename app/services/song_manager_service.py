@@ -45,3 +45,21 @@ def get_share_by_token(token):
 def delete_share(share_id):
     share = get_object_or_404(Share, id=share_id)
     share.delete()
+
+
+def toggle_song_favorite(user_profile, song_id):
+    song = get_object_or_404(Song, id=song_id)
+    if user_profile.favorites.filter(id=song_id).exists():
+        user_profile.favorites.remove(song)
+        return False
+    else:
+        user_profile.favorites.add(song)
+        return True
+
+
+def get_user_favorite_ids(user_profile):
+    return list(user_profile.favorites.values_list('id', flat=True))
+
+
+def get_user_favorite_songs(user_profile):
+    return user_profile.favorites.select_related('creator').filter(status='SUCCESS').order_by('-created_at')
