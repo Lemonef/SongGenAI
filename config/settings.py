@@ -35,6 +35,9 @@ ALLOWED_HOSTS = [
     "localhost",
     "disliking-algebra-destitute.ngrok-free.dev",
 ]
+_extra_hosts = os.environ.get("DJANGO_ALLOWED_HOSTS", "")
+if _extra_hosts:
+    ALLOWED_HOSTS += [h.strip() for h in _extra_hosts.split(",") if h.strip()]
 
 
 # Application definition
