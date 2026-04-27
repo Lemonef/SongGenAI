@@ -31,13 +31,20 @@ def create_form_and_song(request):
             return JsonResponse({"error": "Only creators can generate songs."}, status=403)
         creator = user.creator_profile
 
+        raw_duration = int(request.POST.get("requested_duration_seconds", 120))
+        duration_seconds = max(120, min(360, raw_duration))
+
         form = Form.objects.create(
             creator=creator,
             prompt=request.POST.get("prompt", ""),
             genre=request.POST.get("genre", "Unknown"),
             mood=request.POST.get("mood", "Unknown"),
+            tone=request.POST.get("tone", "Neutral"),
+            occasion=request.POST.get("occasion", "General"),
+            vocal_style=request.POST.get("vocal_style", "Any"),
+            background_story=request.POST.get("background_story", ""),
             requested_title=request.POST.get("requested_title", "Untitled Song"),
-            requested_duration_seconds=int(request.POST.get("requested_duration_seconds", 30)),
+            requested_duration_seconds=duration_seconds,
         )
 
         is_public = request.POST.get("is_public", "true").lower() == "true"
@@ -62,8 +69,19 @@ def create_form_and_song(request):
         except Exception as e:
             logger.warning(f"Suno generation failed: {str(e)}")
             return JsonResponse({"status": "suno_error"})
+
+        # If editing an existing song, set version and parent
+        parent_song_id = request.POST.get("parent_song_id")
+        if parent_song_id:
+            try:
+                parent = Song.objects.get(id=int(parent_song_id), creator=creator)
+                song.parent_song = parent
+                song.version = parent.version + 1
+            except Song.DoesNotExist:
+                pass
+
         song.is_public = is_public
-        song.save(update_fields=["is_public"])
+        song.save(update_fields=["is_public", "parent_song", "version"])
 
         return JsonResponse({
             "message": "Song created successfully",
