@@ -798,6 +798,7 @@ function libraryManager(config) {
     versionPollTimer: null,
     versionError: '',
     versionKeeping: false,
+    _statusPollers: {},
 
     async init() {
       await Promise.all([this.fetchLibraries(), this.fetchFavorites()]);
@@ -883,13 +884,48 @@ function libraryManager(config) {
       this.loading = true;
       this.songs = [];
       this.filteredSongs = [];
+      // Stop any existing pollers from previous load
+      Object.values(this._statusPollers).forEach(t => clearInterval(t));
+      this._statusPollers = {};
       try {
         const res = await fetch('/manager/history/');
         const data = await res.json();
         this.songs = data.songs || [];
         this.applyFilter();
+        this._watchGeneratingSongs();
       } catch (e) { console.error("Failed to load history", e); }
       this.loading = false;
+    },
+
+    _watchGeneratingSongs() {
+      const TERMINAL = new Set(['SUCCESS', 'FAILED']);
+      this.songs.forEach(song => {
+        if (TERMINAL.has(song.status)) return;
+        if (this._statusPollers[song.id]) return;
+        this._statusPollers[song.id] = setInterval(async () => {
+          try {
+            const res = await fetch(`/generation/status/${song.id}/`);
+            const data = await res.json();
+            if (TERMINAL.has(data.status)) {
+              clearInterval(this._statusPollers[song.id]);
+              delete this._statusPollers[song.id];
+              // Update song in list in-place
+              const idx = this.songs.findIndex(s => s.id === song.id);
+              if (idx !== -1) {
+                this.songs[idx] = { ...this.songs[idx], ...data,
+                  status: data.status,
+                  audio_url: data.audio_url || this.songs[idx].audio_url,
+                  image_url: data.image_url || this.songs[idx].image_url,
+                  duration_seconds: data.duration_seconds || this.songs[idx].duration_seconds,
+                  failure_reason: data.failure_reason || '',
+                };
+                this.songs = [...this.songs];
+                this.applyFilter();
+              }
+            }
+          } catch (_) {}
+        }, 4000);
+      });
     },
 
     async loadFavorites() {

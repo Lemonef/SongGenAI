@@ -115,6 +115,7 @@ def get_song_status(request, song_id):
         "duration_seconds": song.duration_seconds,
         "creator_name": song.creator.name,
         "task_id": song.task_id,
+        "failure_reason": song.failure_reason,
     })
 
 
