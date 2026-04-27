@@ -29,6 +29,16 @@ class Song(models.Model):
     image_url = models.URLField(blank=True, default="")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     is_public = models.BooleanField(default=True)
+    is_explicit = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
+    parent_song = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="versions"
+    )
+    failure_reason = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
