@@ -16,6 +16,8 @@ from app.services.song_manager_service import (
     toggle_song_favorite,
     get_user_favorite_ids,
     get_user_favorite_songs,
+    delete_song as delete_song_service,
+    get_song_edit_data,
 )
 import json
 
@@ -52,7 +54,18 @@ def default_song_history(request):
                 "image_url": song.image_url,
                 "creator_name": song.creator.name,
                 "is_public": song.is_public,
+                "is_explicit": song.is_explicit,
                 "status": song.status,
+                "failure_reason": song.failure_reason,
+                "version": song.version,
+                "parent_song_id": song.parent_song_id,
+                "occasion": song.form.occasion,
+                "genre": song.form.genre,
+                "mood": song.form.mood,
+                "tone": song.form.tone,
+                "vocal_style": song.form.vocal_style,
+                "background_story": song.form.background_story,
+                "created_at": song.created_at.strftime("%d %b %Y, %H:%M"),
                 "can_edit_visibility": (song.creator.user == user),
                 "is_favorited": song.id in fav_ids,
             }
@@ -115,7 +128,14 @@ def library_detail(request, library_id):
                 "image_url": song.image_url,
                 "creator_name": song.creator.name,
                 "is_public": song.is_public,
+                "is_explicit": song.is_explicit,
                 "status": song.status,
+                "failure_reason": song.failure_reason,
+                "version": song.version,
+                "occasion": song.form.occasion,
+                "genre": song.form.genre,
+                "mood": song.form.mood,
+                "created_at": song.created_at.strftime("%d %b %Y, %H:%M"),
                 "can_edit_visibility": (song.creator.user == user),
                 "is_favorited": song.id in fav_ids,
             }
@@ -205,17 +225,6 @@ def list_song_shares(request, song_id):
             }
             for share in shares
         ]
-    })
-
-
-def open_shared_song(request, token):
-    share = get_share_by_token(token)
-
-    return JsonResponse({
-        "message": "Shared song opened",
-        "song_id": share.song.id,
-        "song_title": share.song.title,
-        "duration_seconds": share.song.duration_seconds,
     })
 
 
@@ -309,10 +318,68 @@ def get_favorite_songs(request):
                 "image_url": song.image_url,
                 "creator_name": song.creator.name,
                 "is_public": song.is_public,
+                "is_explicit": song.is_explicit,
                 "status": song.status,
+                "failure_reason": song.failure_reason,
+                "version": song.version,
+                "occasion": song.form.occasion,
+                "genre": song.form.genre,
+                "mood": song.form.mood,
+                "created_at": song.created_at.strftime("%d %b %Y, %H:%M"),
                 "can_edit_visibility": hasattr(user, 'creator_profile') and song.creator.user == user,
                 "is_favorited": song.id in fav_ids,
             }
             for song in songs
         ]
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_song(request, song_id):
+    user = request.user
+    if not hasattr(user, 'profile') or not user.profile.is_creator():
+        return JsonResponse({"error": "Only creators can delete songs."}, status=403)
+    creator = user.creator_profile
+    try:
+        delete_song_service(song_id, creator)
+        return JsonResponse({"status": "success", "message": "Song deleted."})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@login_required
+def get_song_edit_data_view(request, song_id):
+    user = request.user
+    if not hasattr(user, 'profile') or not user.profile.is_creator():
+        return JsonResponse({"error": "Only creators can edit songs."}, status=403)
+    creator = user.creator_profile
+    data = get_song_edit_data(song_id, creator)
+    return JsonResponse(data)
+
+
+def open_shared_song(request, token):
+    from app.models import Share
+    share = get_object_or_404(Share, token=token)
+    song = share.song
+    return render(request, 'manager/share.html', {
+        "song": song,
+        "form": song.form,
+        "share": share,
+    })
+
+
+def song_profile(request, song_id):
+    song = get_object_or_404(Song, id=song_id)
+    if not song.is_public:
+        if not request.user.is_authenticated:
+            from django.shortcuts import redirect
+            return redirect('/accounts/login/')
+        if not hasattr(request.user, 'creator_profile') or song.creator.user != request.user:
+            from django.http import Http404
+            raise Http404
+    return render(request, 'manager/share.html', {
+        "song": song,
+        "form": song.form,
+        "share": None,
     })

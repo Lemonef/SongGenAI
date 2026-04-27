@@ -47,6 +47,29 @@ def delete_share(share_id):
     share.delete()
 
 
+def delete_song(song_id, creator):
+    song = get_object_or_404(Song, id=song_id, creator=creator)
+    song.delete()
+
+
+def get_song_edit_data(song_id, creator):
+    song = get_object_or_404(Song, id=song_id, creator=creator)
+    f = song.form
+    return {
+        "song_id": song.id,
+        "title": song.title,
+        "genre": f.genre,
+        "mood": f.mood,
+        "tone": f.tone,
+        "occasion": f.occasion,
+        "vocal_style": f.vocal_style,
+        "background_story": f.background_story,
+        "prompt": f.prompt,
+        "requested_duration_seconds": f.requested_duration_seconds,
+        "version": song.version,
+    }
+
+
 def toggle_song_favorite(user_profile, song_id):
     song = get_object_or_404(Song, id=song_id)
     if user_profile.favorites.filter(id=song_id).exists():

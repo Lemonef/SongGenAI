@@ -17,6 +17,9 @@ from app.controllers.song_manager_controller import (
     toggle_favorite,
     get_user_favorites,
     get_favorite_songs,
+    delete_song,
+    get_song_edit_data_view,
+    song_profile,
 )
 
 urlpatterns = [
@@ -38,4 +41,7 @@ urlpatterns = [
     path("song/<int:song_id>/toggle-favorite/", toggle_favorite, name="toggle_favorite"),
     path("favorites/", get_user_favorites, name="get_user_favorites"),
     path("favorites/songs/", get_favorite_songs, name="get_favorite_songs"),
+    path("song/<int:song_id>/delete/", delete_song, name="delete_song"),
+    path("song/<int:song_id>/edit-data/", get_song_edit_data_view, name="get_song_edit_data"),
+    path("song/<int:song_id>/", song_profile, name="song_profile"),
 ]
