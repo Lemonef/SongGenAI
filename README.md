@@ -12,12 +12,13 @@ This implementation was developed for **Exercise 4: Apply Strategy Pattern for S
 The system supports the following core flow:
 
 1. A **Creator** registers and logs in via Google OAuth.
-2. The creator submits a **Form** (prompt, genre, mood, title, duration).
+2. The creator submits a structured **Form** (title, occasion, genre, mood, tone, vocal style, length, background story).
 3. The system generates a **Song** using the active strategy (mock or Suno API).
-4. Generated songs are shown in the creator's **Song Manager** with status tracking.
-5. Songs can be organized into **Libraries**, shared via token links, and toggled public/private.
-6. Public songs appear on the **Browse** page for all users.
-7. Credit usage is recorded through **CreditTransaction** on every generation.
+4. Generated songs appear in the creator's **Library** with live status tracking.
+5. Songs can be organized into **Libraries**, shared via token links, downloaded, and toggled public/private.
+6. Public songs appear on the **Browse** page for all authenticated users.
+7. Credit usage is recorded through **CreditTransaction** on every generation; credits are automatically refunded on failure.
+8. Creators can **edit** a song to generate a new version, then choose which version to keep.
 
 ---
 
@@ -25,14 +26,26 @@ The system supports the following core flow:
 
 - **Strategy Pattern** for song generation (mock vs Suno API, swappable via env var)
 - **Mock strategy** — offline, deterministic, no API calls required
-- **Suno API strategy** — real AI generation via SunoApi.org with callback support
-- Google OAuth authentication
+- **Suno API strategy** — real AI generation via SunoApi.org with webhook callback + background polling
+- Google OAuth authentication (Creator and Listener roles)
 - Full frontend UI (Django Templates, Tailwind CSS, Alpine.js)
-- Browse page for public songs
-- Song manager: history, libraries, visibility toggle, share links, download
-- **Favourites** — both Creators and Listeners can heart songs; dedicated Favourites view in manager
-- Credit transaction tracking
-- Global audio player with playback controls
+- **Structured generation form** — title, occasion, genre, mood, tone, vocal style, length (2–6 min), background story
+- **Review screen** — shows all values and credit cost before confirming generation
+- **Real-time status** — history page polls in-progress songs and updates badge live
+- **Auto-fail stale songs** — songs stuck generating for > 20 minutes are automatically marked FAILED and credits refunded
+- **Content safety labeling** — multi-layer explicit detection: occasion/tone heuristic, text keyword scan, Suno response tags
+- **Manual explicit toggle** — creator can override Clean/Explicit label per song
+- **Version management** — edit a song, generate new version, side-by-side comparison, choose one to keep (max 2 versions at a time)
+- **Delete song** with confirmation modal
+- **Song profile page** — full player, song details, background story, tags, accessible by link
+- **Share songs** via UUID token links (login required to access)
+- **Favorites** — heart songs; dedicated Favourites view in library
+- **Filter and sort** library — by status, title A–Z, newest/oldest, search
+- **Timestamps** — generation date shown per song
+- **Credit refund** — automatic on generation failure (polling timeout, Suno 5xx, callback FAILED)
+- **Global audio player** — play/pause, seek, skip ±15s, prev/next queue, volume slider, mute toggle
+- **Clickable song titles** — open song profile page with hover animation
+- Browse page for public songs with search
 - Django admin support
 
 ---
@@ -52,15 +65,48 @@ The system supports the following core flow:
 
 ## Domain Relationships
 
-- One **Creator** can have many **Forms**
-- One **Creator** can have many **Songs**
-- One **Creator** can have many **Libraries**
-- One **Creator** can have many **CreditTransactions**
-- One **Form** generates one **Song**
-- One **Library** can contain many **Songs**
-- One **Song** can belong to many **Libraries**
-- One **Song** can have many **Shares**
-- One **UserProfile** can have many favourite **Songs** (and vice versa)
+- One **Creator** → many **Forms**
+- One **Creator** → many **Songs**
+- One **Creator** → many **Libraries**
+- One **Creator** → many **CreditTransactions**
+- One **Form** → one **Song**
+- One **Song** → optional **parent Song** (version chain, max 2 active at once)
+- One **Library** → many **Songs** (M2M)
+- One **Song** → many **Shares**
+- One **UserProfile** → many favourite **Songs** (M2M)
+
+---
+
+## Song Model Fields
+
+| Field | Description |
+|-------|-------------|
+| `title` | Song title |
+| `status` | PENDING / TEXT_SUCCESS / FIRST_SUCCESS / SUCCESS / FAILED |
+| `audio_url` | Playback URL |
+| `image_url` | Cover art URL |
+| `duration_seconds` | Actual duration |
+| `is_public` | Visible on Browse page |
+| `is_explicit` | Content safety label (auto-detected + manual override) |
+| `version` | Version number (1 = original) |
+| `parent_song` | FK to previous version (null for originals) |
+| `failure_reason` | Human-readable failure message |
+| `task_id` | Suno task ID for polling |
+| `created_at` | Generation timestamp |
+
+## Form Model Fields
+
+| Field | Description |
+|-------|-------------|
+| `requested_title` | Song title |
+| `occasion` | Event context (Birthday, Wedding, Party/Nightclub, etc.) |
+| `genre` | Music genre dropdown |
+| `mood` | Mood dropdown |
+| `tone` | Tone dropdown |
+| `vocal_style` | Vocal style (Male, Female, Duet, Instrumental Only, etc.) |
+| `requested_duration_seconds` | 120–360s (2–6 min) |
+| `prompt` | Song description used as AI prompt |
+| `background_story` | Stored for display only — not sent to AI |
 
 ---
 
@@ -99,21 +145,23 @@ project_root/
 │   │   ├── song_manager_service.py
 │   │   └── user_service.py
 │   │
-│   ├── strategies/                   ← Strategy Pattern 
+│   ├── strategies/                   ← Strategy Pattern
 │   │   ├── base.py                   ← Abstract interface
 │   │   ├── factory.py                ← Centralized strategy selection
-│   │   ├── mock_strategy.py          ← Offline mock implementation
+│   │   ├── mock_strategy.py          ← Offline mock + content classification
 │   │   ├── suno_strategy.py          ← Suno API implementation
 │   │   └── exceptions.py
 │   │
 │   ├── templates/
-│   │   ├── base.html
+│   │   ├── base.html                 ← Global player, nav, volume control
 │   │   ├── home.html
 │   │   ├── browse/
 │   │   ├── generation/
 │   │   ├── manager/
+│   │   │   ├── index.html            ← Library, history, edit/delete/compare
+│   │   │   └── share.html            ← Song profile / shared link page
 │   │   ├── user/
-│   │   ├── account/                  ← Auth pages
+│   │   ├── account/
 │   │   └── errors/
 │   │
 │   ├── migrations/
@@ -277,17 +325,17 @@ Set in your `.env` file:
 GENERATOR_STRATEGY=mock
 ```
 
-Then restart the server. Mock mode produces a deterministic song with a fixed placeholder audio URL. No API key or internet connection required.
+Then restart the server. Mock mode produces a deterministic song with a fixed placeholder audio URL and classifies `is_explicit` from form fields. No API key or internet connection required.
 
 **Example output:**
 
 ```json
 {
   "message": "Song created successfully",
-  "song_title": "Generated Song 1",
+  "song_title": "My Song",
   "status": "SUCCESS",
   "audio_url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-  "duration_seconds": 229
+  "duration_seconds": 372
 }
 ```
 
@@ -303,7 +351,9 @@ SUNO_API_KEY=your_api_key_here
 SUNO_CALLBACK_URL=https://your-ngrok-url/generation/suno/callback/
 ```
 
-Then restart the server. Suno mode calls `POST https://api.sunoapi.org/api/v1/generate`, stores the returned `taskId`, and updates the song when the callback resolves.
+Then restart the server. Suno mode calls `POST https://api.sunoapi.org/api/v1/generate`, stores the returned `taskId`, and updates the song when the callback fires or polling detects completion.
+
+Songs stuck generating for > 20 minutes are automatically marked FAILED and credits refunded.
 
 **Example output (initial response):**
 
@@ -363,31 +413,31 @@ No `if/else` logic is scattered through controllers or services.
 
 ---
 
-## Route Structure
+## Content Safety
 
-| Prefix | Routes |
-|--------|--------|
-| `/` | Home page |
-| `/browse/` | Public song browse page |
-| `/generation/` | Song generation form, status polling, Suno callback |
-| `/manager/` | Song history, libraries, shares, visibility, duration |
-| `/playback/` | Global player song data |
-| `/user/` | Onboarding, credit balance |
-| `/accounts/` | Google OAuth login/logout |
+Explicit content detection uses multiple layers (applied in order):
 
----
-
-## Mock Song Generation
-
-When `GENERATOR_STRATEGY=mock`, the system generates a deterministic `Song` using a fixed placeholder audio URL and marks it `SUCCESS` immediately. No external API is called.
-
-This allows full end-to-end testing without a Suno API key or network access.
+| Layer | Rule |
+|-------|------|
+| Clean occasion | Birthday, Wedding, Children's Party, etc. → always Clean (overrides all below) |
+| Explicit occasion | Party / Nightclub → Explicit |
+| Explicit tone | Sensual, Aggressive → Explicit |
+| Text scan | Keywords in `prompt` or `background_story` → Explicit |
+| Suno tags | Response `tags` field scanned for explicit keywords |
+| Manual override | Creator can toggle Clean/Explicit on any song |
 
 ---
 
-## Share Logic
+## Version Management
 
-Each **Share** stores an auto-generated UUID token. The application derives a shareable link from that token rather than storing the full URL in the database.
+Creators can edit any song to generate a new version:
+
+1. Click **Edit** on a song → pre-filled edit form
+2. Modify any field → **Generate New Version**
+3. Full-screen generating overlay shows progress
+4. On success → side-by-side comparison (changed fields highlighted)
+5. Click **Keep this version** on either side → other is deleted, kept song reset to v1
+6. Maximum 2 versions exist at any time
 
 ---
 
@@ -398,8 +448,24 @@ Credits are tracked using **CreditTransaction** rather than a simple balance fie
 Supported transaction types:
 
 * `ADD`
-* `DEDUCT`
-* `REFUND`
+* `DEDUCT` — on generation start
+* `REFUND` — automatic on failure (polling timeout, Suno 5xx × 3, callback FAILED, stale timeout)
+
+---
+
+## Route Structure
+
+| Prefix | Key endpoints |
+|--------|--------------|
+| `/` | Home page |
+| `/browse/` | Public song browse with search |
+| `/generation/` | Form, status polling, Suno callback |
+| `/manager/` | History, libraries, shares, delete, edit, version, explicit toggle, song profile |
+| `/manager/song/<id>/` | Song profile page |
+| `/manager/share/<token>/` | Shared song page (login required) |
+| `/playback/` | Global player song data |
+| `/user/` | Onboarding, credit balance |
+| `/accounts/` | Google OAuth login/logout |
 
 ---
 
@@ -410,14 +476,7 @@ Supported transaction types:
 * Frontend UI implemented with Django Templates, Tailwind CSS, and Alpine.js
 * Strategy selection controlled entirely by `GENERATOR_STRATEGY` env var
 * `.env` file must never be committed — it contains secrets
-
----
-
-## Future Improvements
-
-* Listener access tracking for shared songs
-* Expanded API documentation
-* More granular credit pricing per generation length
+* Background polling thread is daemon — auto-fail catches any songs orphaned by server restart
 
 ---
 
