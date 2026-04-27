@@ -488,6 +488,143 @@
     </div>
   </div>
 
+  <!-- Version Generation Flow Overlay (FR17/FR18) -->
+  <div x-show="versionFlow !== null" x-cloak class="fixed inset-0 z-[120]" style="background:rgba(0,0,0,0.92);backdrop-filter:blur(16px)">
+
+    <!-- Generating state -->
+    <div x-show="versionFlow === 'generating'" class="h-full flex flex-col items-center justify-center text-center px-6">
+      <div class="flex justify-center items-end gap-1 mb-8 h-16">
+        <div class="w-2 bg-violet-600 rounded-full eq-bar" style="height:50%"></div>
+        <div class="w-2 bg-violet-500 rounded-full eq-bar" style="height:80%"></div>
+        <div class="w-2 bg-purple-500 rounded-full eq-bar" style="height:40%"></div>
+        <div class="w-2 bg-violet-600 rounded-full eq-bar" style="height:100%"></div>
+        <div class="w-2 bg-violet-400 rounded-full eq-bar" style="height:65%"></div>
+        <div class="w-2 bg-purple-600 rounded-full eq-bar" style="height:50%"></div>
+      </div>
+      <h2 class="text-3xl font-bold mb-3">Generating New Version</h2>
+      <p class="text-gray-400 mb-2" x-text="versionMsg"></p>
+      <p class="text-gray-600 text-sm mb-10" x-text="versionOldSong ? '\"' + versionOldSong.title + '\"' : ''"></p>
+      <button @click="cancelVersionFlow()" class="text-gray-600 hover:text-gray-400 text-sm transition-colors">Cancel</button>
+    </div>
+
+    <!-- Failed state -->
+    <div x-show="versionFlow === 'failed'" class="h-full flex flex-col items-center justify-center text-center px-6">
+      <div class="w-16 h-16 rounded-full bg-red-900/30 flex items-center justify-center mx-auto mb-5">
+        <svg class="w-8 h-8 text-red-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold mb-2">Generation Failed</h2>
+      <p class="text-gray-500 text-sm mb-8" x-text="versionError || 'Something went wrong.'"></p>
+      <button @click="cancelVersionFlow()" class="btn-primary px-8 py-3 rounded-xl text-sm font-semibold">Close</button>
+    </div>
+
+    <!-- Compare + choose state -->
+    <div x-show="versionFlow === 'compare'" class="h-full flex flex-col overflow-y-auto">
+      <div class="max-w-5xl mx-auto w-full px-6 py-10 flex flex-col flex-1">
+        <div class="text-center mb-8">
+          <h2 class="text-3xl font-bold mb-2">Choose Your Version</h2>
+          <p class="text-gray-500 text-sm">Pick one to keep. The other will be deleted.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6 flex-1">
+
+          <!-- Old version card -->
+          <div x-show="versionOldSong" class="card rounded-2xl p-6 flex flex-col border-white/10">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="px-2 py-0.5 rounded text-xs font-bold bg-white/10 text-gray-400" x-text="'v' + (versionOldSong?.version || 1)"></span>
+              <span class="text-gray-500 text-xs">Previous version</span>
+            </div>
+            <div class="w-full h-36 rounded-xl overflow-hidden mb-4 bg-purple-900/20 border border-white/5 flex-shrink-0">
+              <template x-if="versionOldSong?.image_url">
+                <img :src="versionOldSong.image_url" class="w-full h-full object-cover opacity-80">
+              </template>
+              <template x-if="!versionOldSong?.image_url">
+                <div class="w-full h-full flex items-center justify-center">
+                  <svg class="w-10 h-10 text-violet-400/20" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+                </div>
+              </template>
+            </div>
+            <p class="font-bold text-lg mb-1 truncate" x-text="versionOldSong?.title"></p>
+            <p class="text-gray-600 text-xs mb-4" x-text="versionOldSong?.created_at"></p>
+            <dl class="space-y-1.5 text-xs mb-5 flex-1">
+              <div class="flex justify-between"><dt class="text-gray-600">Genre</dt><dd class="text-gray-300" x-text="versionOldSong?.genre"></dd></div>
+              <div class="flex justify-between"><dt class="text-gray-600">Mood</dt><dd class="text-gray-300" x-text="versionOldSong?.mood"></dd></div>
+              <div class="flex justify-between"><dt class="text-gray-600">Tone</dt><dd class="text-gray-300" x-text="versionOldSong?.tone"></dd></div>
+              <div class="flex justify-between"><dt class="text-gray-600">Occasion</dt><dd class="text-gray-300" x-text="versionOldSong?.occasion"></dd></div>
+              <div class="flex justify-between"><dt class="text-gray-600">Length</dt><dd class="text-gray-300" x-text="formatTime(versionOldSong?.duration_seconds)"></dd></div>
+            </dl>
+            <template x-if="versionOldSong?.audio_url">
+              <button @click="$dispatch('play-song', { song: versionOldSong, playlist: [] })"
+                class="w-full py-2 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-purple-600 text-xs font-medium transition-all flex items-center justify-center gap-2 mb-3">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"/></svg>
+                Preview
+              </button>
+            </template>
+            <button @click="keepVersion(versionOldSong, versionNewSong)" :disabled="versionKeeping"
+              class="w-full py-3 rounded-xl border-2 border-white/20 text-white hover:bg-white/10 font-bold text-sm transition-all">
+              Keep This Version
+            </button>
+          </div>
+
+          <!-- New version card -->
+          <div x-show="versionNewSong" class="card rounded-2xl p-6 flex flex-col border-violet-500/40" style="background:rgba(124,58,237,0.06)">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="px-2 py-0.5 rounded text-xs font-bold bg-violet-500/20 text-violet-300" x-text="'v' + (versionNewSong?.version || 2)"></span>
+              <span class="text-violet-400 text-xs font-medium">New version</span>
+            </div>
+            <div class="w-full h-36 rounded-xl overflow-hidden mb-4 bg-violet-900/20 border border-violet-500/10 flex-shrink-0">
+              <template x-if="versionNewSong?.image_url">
+                <img :src="versionNewSong.image_url" class="w-full h-full object-cover">
+              </template>
+              <template x-if="!versionNewSong?.image_url">
+                <div class="w-full h-full flex items-center justify-center">
+                  <svg class="w-10 h-10 text-violet-400/20" fill="currentColor" viewBox="0 0 20 20"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/></svg>
+                </div>
+              </template>
+            </div>
+            <p class="font-bold text-lg mb-1 truncate" x-text="versionNewSong?.title"></p>
+            <p class="text-gray-600 text-xs mb-4" x-text="versionNewSong?.created_at"></p>
+            <dl class="space-y-1.5 text-xs mb-5 flex-1">
+              <div class="flex justify-between">
+                <dt class="text-gray-600">Genre</dt>
+                <dd :class="versionNewSong?.genre !== versionOldSong?.genre ? 'text-violet-300 font-bold' : 'text-gray-300'" x-text="versionNewSong?.genre"></dd>
+              </div>
+              <div class="flex justify-between">
+                <dt class="text-gray-600">Mood</dt>
+                <dd :class="versionNewSong?.mood !== versionOldSong?.mood ? 'text-violet-300 font-bold' : 'text-gray-300'" x-text="versionNewSong?.mood"></dd>
+              </div>
+              <div class="flex justify-between">
+                <dt class="text-gray-600">Tone</dt>
+                <dd :class="versionNewSong?.tone !== versionOldSong?.tone ? 'text-violet-300 font-bold' : 'text-gray-300'" x-text="versionNewSong?.tone"></dd>
+              </div>
+              <div class="flex justify-between">
+                <dt class="text-gray-600">Occasion</dt>
+                <dd :class="versionNewSong?.occasion !== versionOldSong?.occasion ? 'text-violet-300 font-bold' : 'text-gray-300'" x-text="versionNewSong?.occasion"></dd>
+              </div>
+              <div class="flex justify-between">
+                <dt class="text-gray-600">Length</dt>
+                <dd :class="versionNewSong?.duration_seconds !== versionOldSong?.duration_seconds ? 'text-violet-300 font-bold' : 'text-gray-300'" x-text="formatTime(versionNewSong?.duration_seconds)"></dd>
+              </div>
+            </dl>
+            <template x-if="versionNewSong?.audio_url">
+              <button @click="$dispatch('play-song', { song: versionNewSong, playlist: [] })"
+                class="w-full py-2 rounded-xl border border-violet-500/30 text-violet-300 hover:bg-violet-500/10 text-xs font-medium transition-all flex items-center justify-center gap-2 mb-3">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M7 6v12l10-6z"/></svg>
+                Preview
+              </button>
+            </template>
+            <button @click="keepVersion(versionNewSong, versionOldSong)" :disabled="versionKeeping"
+              class="w-full btn-primary py-3 rounded-xl font-bold text-sm shadow-lg shadow-violet-900/40">
+              Keep This Version
+            </button>
+          </div>
+        </div>
+
+        <p class="text-center text-xs text-gray-700 mt-4">Changed fields shown in <span class="text-violet-400">purple</span></p>
+      </div>
+    </div>
+
+  </div>
+
   <!-- Version Compare Modal (FR18) -->
   <div x-show="showCompareModal" x-cloak class="fixed inset-0 z-[110] flex items-center justify-center p-4 overflow-y-auto" style="background:rgba(0,0,0,0.88);backdrop-filter:blur(14px)">
     <div class="w-full max-w-4xl my-8">
@@ -640,9 +777,19 @@ function libraryManager(config) {
     editSubmitting: false,
     editSourceSong: null,
 
-    // Compare modal
+    // Compare modal (badge-click, read-only)
     showCompareModal: false,
     compareSong: null,
+
+    // Version generation flow
+    versionFlow: null, // null | 'generating' | 'compare' | 'failed'
+    versionMsg: 'Generating new version...',
+    versionOldSong: null,
+    versionNewSong: null,
+    versionNewSongId: null,
+    versionPollTimer: null,
+    versionError: '',
+    versionKeeping: false,
 
     async init() {
       await Promise.all([this.fetchLibraries(), this.fetchFavorites()]);
@@ -885,9 +1032,19 @@ function libraryManager(config) {
         });
         const data = await res.json();
         if (data.song_id) {
+          // Close edit modal, start version generation flow
           this.showEditModal = false;
           this.editData = null;
-          await this.loadHistory();
+          this.versionOldSong = { ...this.editSourceSong };
+          this.versionNewSongId = data.song_id;
+          this.versionNewSong = null;
+          this.versionError = '';
+          if (data.status === 'SUCCESS') {
+            await this._finishVersionFlow(data.song_id);
+          } else {
+            this.versionFlow = 'generating';
+            this._pollVersionStatus(data.song_id);
+          }
         } else {
           this.editError = data.error || data.message || 'Generation failed.';
         }
@@ -895,6 +1052,76 @@ function libraryManager(config) {
         this.editError = 'Request failed.';
       }
       this.editSubmitting = false;
+    },
+
+    _pollVersionStatus(songId) {
+      const msgs = [
+        'Generating new version...',
+        'AI composing your track...',
+        'Adding instruments and vocals...',
+        'Mixing and mastering...',
+        'Almost ready...',
+      ];
+      let tick = 0;
+      this.versionPollTimer = setInterval(async () => {
+        this.versionMsg = msgs[tick % msgs.length];
+        tick++;
+        try {
+          const res = await fetch(`/generation/status/${songId}/`);
+          const data = await res.json();
+          if (data.status === 'SUCCESS') {
+            clearInterval(this.versionPollTimer);
+            await this._finishVersionFlow(songId);
+          } else if (data.status === 'FAILED') {
+            clearInterval(this.versionPollTimer);
+            this.versionError = data.failure_reason || 'Generation failed.';
+            this.versionFlow = 'failed';
+          }
+        } catch (_) {}
+      }, 3000);
+    },
+
+    async _finishVersionFlow(songId) {
+      // Reload history to get full new song data including parent_song
+      await this.loadHistory();
+      const newSong = this.songs.find(s => s.id === songId);
+      if (newSong) {
+        this.versionNewSong = newSong;
+        this.versionFlow = 'compare';
+      } else {
+        this.versionFlow = null;
+      }
+    },
+
+    async keepVersion(keepSong, deleteSong) {
+      this.versionKeeping = true;
+      try {
+        // Delete the rejected version
+        await fetch(`/manager/song/${deleteSong.id}/delete/`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCsrf() },
+        });
+        // Reset kept song to v1 so next edit starts fresh
+        await fetch(`/manager/song/${keepSong.id}/reset-version/`, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCsrf() },
+        });
+        this.versionFlow = null;
+        this.versionOldSong = null;
+        this.versionNewSong = null;
+        await this.loadHistory();
+      } catch (e) {
+        console.error('Failed to keep version', e);
+      }
+      this.versionKeeping = false;
+    },
+
+    cancelVersionFlow() {
+      if (this.versionPollTimer) clearInterval(this.versionPollTimer);
+      this.versionFlow = null;
+      this.versionOldSong = null;
+      this.versionNewSong = null;
+      this.versionNewSongId = null;
     },
 
     shareModal(song) {

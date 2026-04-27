@@ -20,6 +20,7 @@ from app.controllers.song_manager_controller import (
     delete_song,
     get_song_edit_data_view,
     song_profile,
+    reset_song_version,
 )
 
 urlpatterns = [
@@ -43,5 +44,6 @@ urlpatterns = [
     path("favorites/songs/", get_favorite_songs, name="get_favorite_songs"),
     path("song/<int:song_id>/delete/", delete_song, name="delete_song"),
     path("song/<int:song_id>/edit-data/", get_song_edit_data_view, name="get_song_edit_data"),
+    path("song/<int:song_id>/reset-version/", reset_song_version, name="reset_song_version"),
     path("song/<int:song_id>/", song_profile, name="song_profile"),
 ]

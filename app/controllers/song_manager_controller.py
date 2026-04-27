@@ -350,6 +350,20 @@ def get_favorite_songs(request):
 
 @login_required
 @require_http_methods(["POST"])
+def reset_song_version(request, song_id):
+    """Reset kept song to v1 with no parent after version comparison."""
+    user = request.user
+    if not hasattr(user, 'profile') or not user.profile.is_creator():
+        return JsonResponse({"error": "Only creators can do this."}, status=403)
+    song = get_object_or_404(Song, id=song_id, creator=user.creator_profile)
+    song.version = 1
+    song.parent_song = None
+    song.save(update_fields=["version", "parent_song"])
+    return JsonResponse({"status": "success", "version": song.version})
+
+
+@login_required
+@require_http_methods(["POST"])
 def delete_song(request, song_id):
     user = request.user
     if not hasattr(user, 'profile') or not user.profile.is_creator():
