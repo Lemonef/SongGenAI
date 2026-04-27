@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from app.models import Form, Song
 from app.services.generation_service import generate_song_from_form
+from app.services.song_manager_service import refund_credits_if_deducted
 from app.strategies.exceptions import SunoOfflineError, SunoInsufficientCreditsError
 
 logger = logging.getLogger(__name__)
@@ -171,6 +172,8 @@ def suno_callback(request):
         if duration:
             song.duration_seconds = int(float(duration))
         song.status = "SUCCESS"
+        from app.strategies.mock_strategy import classify_explicit
+        song.is_explicit = classify_explicit(song.form)
     else:
         # Fallback to status from payload if present
         payload_status = data.get("status")
@@ -182,6 +185,7 @@ def suno_callback(request):
             pass
         elif payload_status == "FAILED":
             song.status = "FAILED"
+            refund_credits_if_deducted(song)
         # If it's something else like 'PROCESSING', we don't mark as FAILED
         # We just wait for the next callback or the poller to find the URL
 
