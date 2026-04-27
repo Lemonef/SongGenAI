@@ -899,9 +899,19 @@ function libraryManager(config) {
 
     _watchGeneratingSongs() {
       const TERMINAL = new Set(['SUCCESS', 'FAILED']);
+      const TIMEOUT_MS = 20 * 60 * 1000; // 20 min — matches server threshold
       this.songs.forEach(song => {
         if (TERMINAL.has(song.status)) return;
         if (this._statusPollers[song.id]) return;
+        // Skip already-stale songs — server will auto-fail on next history reload
+        if (song.created_at) {
+          const months = {"Jan":0,"Feb":1,"Mar":2,"Apr":3,"May":4,"Jun":5,"Jul":6,"Aug":7,"Sep":8,"Oct":9,"Nov":10,"Dec":11};
+          const parts = song.created_at.match(/(\d+) (\w+) (\d+), (\d+):(\d+)/);
+          if (parts) {
+            const songTime = new Date(parts[3], months[parts[2]], parts[1], parts[4], parts[5]);
+            if (Date.now() - songTime.getTime() > TIMEOUT_MS) return;
+          }
+        }
         this._statusPollers[song.id] = setInterval(async () => {
           try {
             const res = await fetch(`/generation/status/${song.id}/`);

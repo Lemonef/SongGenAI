@@ -2,6 +2,8 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
+from django.utils import timezone
+from datetime import timedelta
 
 from app.models import Library, Song
 from app.services.song_manager_service import (
@@ -20,6 +22,26 @@ from app.services.song_manager_service import (
     get_song_edit_data,
 )
 import json
+
+GENERATION_TIMEOUT_MINUTES = 20
+STALE_STATUSES = {"PENDING", "TEXT_SUCCESS", "FIRST_SUCCESS"}
+
+
+def _auto_fail_stale_songs(creator):
+    """Mark songs stuck in generating state past timeout as FAILED and refund credits."""
+    from app.services.song_manager_service import refund_credits_if_deducted
+    cutoff = timezone.now() - timedelta(minutes=GENERATION_TIMEOUT_MINUTES)
+    stale = Song.objects.filter(
+        creator=creator,
+        status__in=STALE_STATUSES,
+        created_at__lt=cutoff,
+    )
+    for song in stale:
+        song.status = "FAILED"
+        song.failure_reason = f"Generation timed out after {GENERATION_TIMEOUT_MINUTES} minutes."
+        song.save(update_fields=["status", "failure_reason"])
+        refund_credits_if_deducted(song)
+
 
 @login_required
 def manager_home(request):
@@ -41,6 +63,7 @@ def default_song_history(request):
         return JsonResponse({"error": "Only creators can view history."}, status=403)
     
     creator = user.creator_profile
+    _auto_fail_stale_songs(creator)
     songs = get_creator_song_history(creator)
     fav_ids = set(get_user_favorite_ids(user.profile))
 
