@@ -144,17 +144,27 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         for _ in range(self.MAX_POLLS):
             try:
                 time.sleep(self.POLL_INTERVAL_SECONDS)
+
+                # Guard: webhook may have already resolved this song
+                song.refresh_from_db()
+                if song.status in ("SUCCESS", "FAILED"):
+                    print(f"[Suno] Poll skipped — song {song.id} already {song.status} (resolved by webhook)")
+                    return
+
                 status, audio_url, image_url, duration, tags = self._fetch_status(song.task_id)
                 consecutive_errors = 0
-                song.status = status
+
+                print(f"[Suno] Poll — task_id={song.task_id}, resolved_status={status}, audio_url={audio_url or 'none'}")
+
                 if audio_url:
                     song.audio_url = audio_url
                 if image_url:
                     song.image_url = image_url
                 if duration:
                     song.duration_seconds = int(float(duration))
+                song.status = status
                 song.save()
-                print(f"[Suno] Poll update — task_id={song.task_id}, status={status}, audio_url={audio_url or 'pending'}")
+
                 if status == "FAILED":
                     refund_credits_if_deducted(song)
                     return
@@ -162,11 +172,11 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     song.is_explicit = classify_explicit(song.form, suno_tags=tags)
                     song.save(update_fields=["is_explicit"])
                     return
+
             except requests.exceptions.HTTPError as e:
                 code = e.response.status_code if e.response is not None else 0
                 print(f"[Warning] Suno poll HTTP {code} for task {song.task_id}: {e}")
                 if code >= 500:
-                    # Suno-side server error — their fault, fail fast after 3 consecutive
                     consecutive_errors += 1
                     if consecutive_errors >= 3:
                         song.status = "FAILED"
@@ -195,11 +205,13 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         )
         response.raise_for_status()
         data = response.json()
+        print(f"[Suno] Raw record-info response: {data}")
 
         records = (data.get("data") or {})
         record = records[0] if isinstance(records, list) and records else records
 
-        status = record.get("status", "PENDING") if isinstance(record, dict) else "PENDING"
+        # Base status from explicit field (some formats use it)
+        raw_status = record.get("status", "") if isinstance(record, dict) else ""
 
         audio_url = None
         image_url = None
@@ -207,7 +219,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         tags = ""
 
         if isinstance(record, dict):
-            # Modern sunoData format
+            # Modern sunoData format (response.sunoData[])
             resp_obj = record.get("response")
             if isinstance(resp_obj, dict):
                 suno_data = resp_obj.get("sunoData") or []
@@ -226,7 +238,8 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     duration = duration or clips[0].get("duration") or clips[0].get("audio_duration")
                     tags = tags or clips[0].get("tags") or ""
 
-            # Callback-style: record has nested data[] array
+            # Callback-style: data.callbackType + data.data[]
+            callback_type = record.get("callbackType", "")
             if not audio_url:
                 nested = record.get("data") or []
                 if isinstance(nested, list) and nested:
@@ -234,8 +247,18 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     image_url = image_url or nested[0].get("image_url") or nested[0].get("imageUrl")
                     duration = duration or nested[0].get("duration")
                     tags = tags or nested[0].get("tags") or ""
-                if audio_url:
-                    status = "SUCCESS"
+
+        # Resolve final status — priority: audio found > callbackType > raw status field
+        if audio_url:
+            status = "SUCCESS"
+        elif callback_type in ("complete",):
+            status = "SUCCESS"
+        elif callback_type in ("failed", "error") or raw_status in ("FAILED", "failed", "error"):
+            status = "FAILED"
+        elif raw_status in ("SUCCESS", "complete", "success"):
+            status = "SUCCESS"
+        else:
+            status = "PENDING"
 
         return status, audio_url, image_url, duration, tags
 
