@@ -7,6 +7,13 @@ from .base import SongGeneratorStrategy
 from .exceptions import SunoOfflineError, SunoInsufficientCreditsError
 from app.models.song import Song
 from app.models.credit_transaction import CreditTransaction
+from app.services.song_manager_service import refund_credits_if_deducted
+from app.strategies.mock_strategy import classify_explicit, CLEAN_OCCASIONS
+
+EXPLICIT_SUNO_TAGS = {
+    "explicit", "adult", "nsfw", "sexual", "erotic", "dirty", "profanity",
+}
+CLEAN_NEGATIVE_TAGS = "explicit lyrics, profanity, adult content, sexual content"
 
 
 class SunoSongGeneratorStrategy(SongGeneratorStrategy):
@@ -73,6 +80,12 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
             style_parts.append(occasion)
         style_str = ", ".join(style_parts)
 
+        occasion = getattr(form, "occasion", "General")
+        is_clean_occasion = occasion in CLEAN_OCCASIONS
+        negative_tags = "Heavy Metal, Upbeat Drums"
+        if is_clean_occasion:
+            negative_tags += f", {CLEAN_NEGATIVE_TAGS}"
+
         payload = {
             "prompt": form.prompt,
             "style": style_str,
@@ -81,7 +94,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
             "customMode": True,
             "instrumental": instrumental,
             "callBackUrl": callback_url,
-            "negativeTags": "Heavy Metal, Upbeat Drums",
+            "negativeTags": negative_tags,
             "vocalGender": vocal_gender,
             "styleWeight": 0.65,
             "weirdnessConstraint": 0.65,
@@ -140,16 +153,21 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     song.duration_seconds = int(float(duration))
                 song.save()
                 print(f"[Suno] Poll update — task_id={song.task_id}, status={status}, audio_url={audio_url or 'pending'}")
-                if status in ("SUCCESS", "FAILED"):
+                if status == "FAILED":
+                    refund_credits_if_deducted(song)
+                    return
+                if status == "SUCCESS":
+                    song.is_explicit = classify_explicit(song.form)
+                    song.save(update_fields=["is_explicit"])
                     return
             except Exception as e:
-                # Catch exception inside the loop so we don't prematurely marking the song as FAILED
                 print(f"[Warning] Error polling Suno API for task {song.task_id}: {e}")
-        
-        # Polling timeout — mark as failed
+
+        # Polling timeout — mark as failed and refund
         song.status = "FAILED"
         song.failure_reason = "Generation timed out after 15 minutes."
         song.save()
+        refund_credits_if_deducted(song)
         print(f"Max polling reached for task {song.task_id}. Marked as FAILED.")
 
     def _fetch_status(self, task_id: str):
@@ -200,4 +218,10 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     status = "SUCCESS"
 
         return status, audio_url, image_url, duration
+
+    def _has_explicit_tags(self, tags_str: str) -> bool:
+        if not tags_str:
+            return False
+        tags_lower = tags_str.lower()
+        return any(t in tags_lower for t in EXPLICIT_SUNO_TAGS)
 
