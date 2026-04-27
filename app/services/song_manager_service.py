@@ -1,5 +1,27 @@
 from django.shortcuts import get_object_or_404
 from app.models import Song, Library, Share
+from app.models.credit_transaction import CreditTransaction
+
+
+def refund_credits_if_deducted(song):
+    """Issue a REFUND transaction if a DEDUCT exists for this song and no REFUND yet."""
+    already_refunded = CreditTransaction.objects.filter(
+        song=song, transaction_type="REFUND"
+    ).exists()
+    if already_refunded:
+        return
+    deduct = CreditTransaction.objects.filter(
+        song=song, transaction_type="DEDUCT"
+    ).first()
+    if deduct:
+        CreditTransaction.objects.create(
+            creator=song.creator,
+            form=song.form,
+            song=song,
+            transaction_type="REFUND",
+            amount=deduct.amount,
+            note="Auto-refund: song generation failed",
+        )
 
 
 def get_creator_song_history(creator):
