@@ -191,8 +191,16 @@
                       x-text="'v' + song.version + ' ↔ compare'"></button>
                   </template>
 
-                  <!-- Explicit badge -->
-                  <template x-if="song.is_explicit">
+                  <!-- Explicit badge / creator toggle -->
+                  <template x-if="song.can_edit_visibility">
+                    <button @click.stop="toggleExplicit(song)"
+                      class="px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all uppercase"
+                      :class="song.is_explicit ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' : 'bg-white/5 border-white/10 text-gray-600 hover:border-gray-500 hover:text-gray-400'"
+                      :title="song.is_explicit ? 'Mark as Clean' : 'Mark as Explicit'">
+                      <span x-text="song.is_explicit ? 'Explicit' : 'Clean'"></span>
+                    </button>
+                  </template>
+                  <template x-if="!song.can_edit_visibility && song.is_explicit">
                     <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-red-500/10 border border-red-500/20 text-red-400 uppercase">Explicit</span>
                   </template>
 
@@ -964,6 +972,18 @@ function libraryManager(config) {
         this.songs = this.songs.filter(s => s.id !== songId);
         this.applyFilter();
       } catch (e) { console.error("Failed to remove song", e); }
+    },
+
+    async toggleExplicit(song) {
+      try {
+        const res = await fetch(`/manager/song/${song.id}/toggle-explicit/`, {
+          method: 'POST', headers: { 'X-CSRFToken': getCsrf() }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          song.is_explicit = data.is_explicit;
+        }
+      } catch (e) { console.error(e); }
     },
 
     // Version compare (FR18)

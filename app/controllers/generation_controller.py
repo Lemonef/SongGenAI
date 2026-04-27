@@ -142,7 +142,8 @@ def suno_callback(request):
     audio_url = None
     image_url = None
     duration = None
-    
+    suno_tags = ""
+
     # Try different payload structures based on callback evolution
     if "data" in payload and isinstance(payload["data"], dict):
         resp_obj = payload["data"].get("response")
@@ -152,18 +153,20 @@ def suno_callback(request):
                 audio_url = suno_data[0].get("audioUrl") or suno_data[0].get("audio_url")
                 image_url = suno_data[0].get("imageUrl") or suno_data[0].get("image_url")
                 duration = suno_data[0].get("duration") or suno_data[0].get("audio_duration")
-                
-        # fallback as before
+                suno_tags = suno_data[0].get("tags") or ""
+
+        # fallback
         if not audio_url:
             song_data_list = payload["data"].get("data") or []
             if isinstance(song_data_list, list) and song_data_list:
                 audio_url = song_data_list[0].get("audio_url") or song_data_list[0].get("audioUrl")
                 image_url = image_url or song_data_list[0].get("imageUrl") or song_data_list[0].get("image_url")
                 duration = duration or song_data_list[0].get("duration") or song_data_list[0].get("audio_duration")
+                suno_tags = suno_tags or song_data_list[0].get("tags") or ""
             elif "audioUrl" in payload["data"]:
-                 audio_url = payload["data"]["audioUrl"]
-                 image_url = image_url or payload["data"].get("imageUrl")
-                 duration = duration or payload["data"].get("duration") or payload["data"].get("audio_duration")
+                audio_url = payload["data"]["audioUrl"]
+                image_url = image_url or payload["data"].get("imageUrl")
+                duration = duration or payload["data"].get("duration") or payload["data"].get("audio_duration")
 
     if audio_url:
         song.audio_url = audio_url
@@ -173,7 +176,7 @@ def suno_callback(request):
             song.duration_seconds = int(float(duration))
         song.status = "SUCCESS"
         from app.strategies.mock_strategy import classify_explicit
-        song.is_explicit = classify_explicit(song.form)
+        song.is_explicit = classify_explicit(song.form, suno_tags=suno_tags)
     else:
         # Fallback to status from payload if present
         payload_status = data.get("status")

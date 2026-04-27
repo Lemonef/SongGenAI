@@ -143,7 +143,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         for _ in range(self.MAX_POLLS):
             try:
                 time.sleep(self.POLL_INTERVAL_SECONDS)
-                status, audio_url, image_url, duration = self._fetch_status(song.task_id)
+                status, audio_url, image_url, duration, tags = self._fetch_status(song.task_id)
                 song.status = status
                 if audio_url:
                     song.audio_url = audio_url
@@ -157,7 +157,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     refund_credits_if_deducted(song)
                     return
                 if status == "SUCCESS":
-                    song.is_explicit = classify_explicit(song.form)
+                    song.is_explicit = classify_explicit(song.form, suno_tags=tags)
                     song.save(update_fields=["is_explicit"])
                     return
             except Exception as e:
@@ -188,6 +188,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         audio_url = None
         image_url = None
         duration = None
+        tags = ""
 
         if isinstance(record, dict):
             # Modern sunoData format
@@ -198,6 +199,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     audio_url = suno_data[0].get("audioUrl") or suno_data[0].get("audio_url")
                     image_url = suno_data[0].get("imageUrl") or suno_data[0].get("image_url")
                     duration = suno_data[0].get("duration") or suno_data[0].get("audio_duration")
+                    tags = suno_data[0].get("tags") or ""
 
             # clips/songs format
             if not audio_url:
@@ -206,6 +208,7 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     audio_url = clips[0].get("audioUrl") or clips[0].get("audio_url")
                     image_url = image_url or clips[0].get("imageUrl") or clips[0].get("image_url")
                     duration = duration or clips[0].get("duration") or clips[0].get("audio_duration")
+                    tags = tags or clips[0].get("tags") or ""
 
             # Callback-style: record has nested data[] array
             if not audio_url:
@@ -214,14 +217,9 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     audio_url = nested[0].get("audio_url") or nested[0].get("audioUrl")
                     image_url = image_url or nested[0].get("image_url") or nested[0].get("imageUrl")
                     duration = duration or nested[0].get("duration")
+                    tags = tags or nested[0].get("tags") or ""
                 if audio_url:
                     status = "SUCCESS"
 
-        return status, audio_url, image_url, duration
-
-    def _has_explicit_tags(self, tags_str: str) -> bool:
-        if not tags_str:
-            return False
-        tags_lower = tags_str.lower()
-        return any(t in tags_lower for t in EXPLICIT_SUNO_TAGS)
+        return status, audio_url, image_url, duration, tags
 

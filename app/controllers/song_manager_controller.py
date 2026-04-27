@@ -350,6 +350,17 @@ def get_favorite_songs(request):
 
 @login_required
 @require_http_methods(["POST"])
+def toggle_explicit(request, song_id):
+    song = get_object_or_404(Song, id=song_id)
+    if not song.creator or song.creator.user != request.user:
+        return JsonResponse({"error": "Only song creator can change this."}, status=403)
+    song.is_explicit = not song.is_explicit
+    song.save(update_fields=["is_explicit"])
+    return JsonResponse({"is_explicit": song.is_explicit})
+
+
+@login_required
+@require_http_methods(["POST"])
 def reset_song_version(request, song_id):
     """Reset kept song to v1 with no parent after version comparison."""
     user = request.user
