@@ -59,6 +59,20 @@ def default_song_history(request):
                 "failure_reason": song.failure_reason,
                 "version": song.version,
                 "parent_song_id": song.parent_song_id,
+                "parent_song": {
+                    "id": song.parent_song.id,
+                    "title": song.parent_song.title,
+                    "audio_url": song.parent_song.audio_url,
+                    "image_url": song.parent_song.image_url,
+                    "duration_seconds": song.parent_song.duration_seconds,
+                    "created_at": song.parent_song.created_at.strftime("%d %b %Y, %H:%M"),
+                    "version": song.parent_song.version,
+                    "genre": song.parent_song.form.genre,
+                    "mood": song.parent_song.form.mood,
+                    "tone": song.parent_song.form.tone,
+                    "occasion": song.parent_song.form.occasion,
+                    "vocal_style": song.parent_song.form.vocal_style,
+                } if song.parent_song_id and song.parent_song else None,
                 "occasion": song.form.occasion,
                 "genre": song.form.genre,
                 "mood": song.form.mood,
@@ -358,6 +372,7 @@ def get_song_edit_data_view(request, song_id):
     return JsonResponse(data)
 
 
+@login_required
 def open_shared_song(request, token):
     from app.models import Share
     share = get_object_or_404(Share, token=token)
@@ -369,12 +384,10 @@ def open_shared_song(request, token):
     })
 
 
+@login_required
 def song_profile(request, song_id):
     song = get_object_or_404(Song, id=song_id)
     if not song.is_public:
-        if not request.user.is_authenticated:
-            from django.shortcuts import redirect
-            return redirect('/accounts/login/')
         if not hasattr(request.user, 'creator_profile') or song.creator.user != request.user:
             from django.http import Http404
             raise Http404
