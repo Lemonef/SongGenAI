@@ -140,10 +140,12 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         return task_id
 
     def _poll_until_done(self, song: Song):
+        consecutive_errors = 0
         for _ in range(self.MAX_POLLS):
             try:
                 time.sleep(self.POLL_INTERVAL_SECONDS)
                 status, audio_url, image_url, duration, tags = self._fetch_status(song.task_id)
+                consecutive_errors = 0
                 song.status = status
                 if audio_url:
                     song.audio_url = audio_url
@@ -160,7 +162,21 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     song.is_explicit = classify_explicit(song.form, suno_tags=tags)
                     song.save(update_fields=["is_explicit"])
                     return
+            except requests.exceptions.HTTPError as e:
+                code = e.response.status_code if e.response is not None else 0
+                print(f"[Warning] Suno poll HTTP {code} for task {song.task_id}: {e}")
+                if code >= 500:
+                    # Suno-side server error — their fault, fail fast after 3 consecutive
+                    consecutive_errors += 1
+                    if consecutive_errors >= 3:
+                        song.status = "FAILED"
+                        song.failure_reason = f"Suno API returned {code} error after {consecutive_errors} retries."
+                        song.save()
+                        refund_credits_if_deducted(song)
+                        print(f"[Suno] Failing task {song.task_id} due to repeated {code} responses.")
+                        return
             except Exception as e:
+                consecutive_errors += 1
                 print(f"[Warning] Error polling Suno API for task {song.task_id}: {e}")
 
         # Polling timeout — mark as failed and refund
