@@ -44,10 +44,12 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
             note="Suno song generation",
         )
 
+        print(f"[Suno] Task created — task_id={task_id}, song_id={song.id}, title='{song.title}', status={song.status}")
+
         # Poll in background thread to avoid blocking the request
         thread = threading.Thread(target=self._poll_until_done, args=(song,), daemon=True)
         thread.start()
-        
+
         return song
 
     def _create_task(self, form) -> str:
@@ -57,16 +59,30 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                 "SUNO_CALLBACK_URL is not configured. Please set settings.SUNO_CALLBACK_URL or environment variable SUNO_CALLBACK_URL."
             )
 
+        vocal_style = getattr(form, "vocal_style", "Any")
+        instrumental = (vocal_style == "Instrumental Only")
+        vocal_gender_map = {"Male": "m", "Female": "f", "Duet": "m", "Rap": "m"}
+        vocal_gender = vocal_gender_map.get(vocal_style, "m")
+
+        tone = getattr(form, "tone", "")
+        occasion = getattr(form, "occasion", "")
+        style_parts = [form.genre, form.mood]
+        if tone and tone not in ("Neutral", "Any"):
+            style_parts.append(tone)
+        if occasion and occasion not in ("General", "Any"):
+            style_parts.append(occasion)
+        style_str = ", ".join(style_parts)
+
         payload = {
             "prompt": form.prompt,
-            "style": f"{form.genre} {form.mood}",
+            "style": style_str,
             "title": form.requested_title or "Untitled Song",
             "model": "V4_5ALL",
             "customMode": True,
-            "instrumental": True,
+            "instrumental": instrumental,
             "callBackUrl": callback_url,
             "negativeTags": "Heavy Metal, Upbeat Drums",
-            "vocalGender": "m",
+            "vocalGender": vocal_gender,
             "styleWeight": 0.65,
             "weirdnessConstraint": 0.65,
             "audioWeight": 0.65,
@@ -101,7 +117,11 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         if data.get("code") == 429 or any(k in combined_msg for k in credit_keywords):
             raise SunoInsufficientCreditsError("Suno API credits are exhausted.")
 
-        task_id = (data.get("data") or {}).get("taskId") or data.get("taskId")
+        inner = data.get("data") or {}
+        task_id = (
+            inner.get("taskId") or inner.get("task_id")
+            or data.get("taskId") or data.get("task_id")
+        )
         if not task_id:
             raise ValueError(f"No taskId in Suno response: {data}")
         return task_id
@@ -119,14 +139,16 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                 if duration:
                     song.duration_seconds = int(float(duration))
                 song.save()
+                print(f"[Suno] Poll update — task_id={song.task_id}, status={status}, audio_url={audio_url or 'pending'}")
                 if status in ("SUCCESS", "FAILED"):
                     return
             except Exception as e:
                 # Catch exception inside the loop so we don't prematurely marking the song as FAILED
                 print(f"[Warning] Error polling Suno API for task {song.task_id}: {e}")
         
-        # If polling loop finishes and it's still not successful/failed, mark as failed
+        # Polling timeout — mark as failed
         song.status = "FAILED"
+        song.failure_reason = "Generation timed out after 15 minutes."
         song.save()
         print(f"Max polling reached for task {song.task_id}. Marked as FAILED.")
 
@@ -148,10 +170,9 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
         audio_url = None
         image_url = None
         duration = None
-        
-        # Extract audio_url and image_url handling both old (clips/songs) and new (response.sunoData) formats
+
         if isinstance(record, dict):
-            # Check for the modern sunoData format
+            # Modern sunoData format
             resp_obj = record.get("response")
             if isinstance(resp_obj, dict):
                 suno_data = resp_obj.get("sunoData") or []
@@ -159,14 +180,24 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
                     audio_url = suno_data[0].get("audioUrl") or suno_data[0].get("audio_url")
                     image_url = suno_data[0].get("imageUrl") or suno_data[0].get("image_url")
                     duration = suno_data[0].get("duration") or suno_data[0].get("audio_duration")
-            
-            # Fallback to old format
+
+            # clips/songs format
             if not audio_url:
                 clips = record.get("clips") or record.get("songs") or []
                 if isinstance(clips, list) and clips:
                     audio_url = clips[0].get("audioUrl") or clips[0].get("audio_url")
                     image_url = image_url or clips[0].get("imageUrl") or clips[0].get("image_url")
                     duration = duration or clips[0].get("duration") or clips[0].get("audio_duration")
+
+            # Callback-style: record has nested data[] array
+            if not audio_url:
+                nested = record.get("data") or []
+                if isinstance(nested, list) and nested:
+                    audio_url = nested[0].get("audio_url") or nested[0].get("audioUrl")
+                    image_url = image_url or nested[0].get("image_url") or nested[0].get("imageUrl")
+                    duration = duration or nested[0].get("duration")
+                if audio_url:
+                    status = "SUCCESS"
 
         return status, audio_url, image_url, duration
 
