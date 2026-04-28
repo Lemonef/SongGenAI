@@ -33,12 +33,17 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
 
         task_id = self._create_task(form)
 
+        # Pre-classify explicit from user input — refined later by Suno tags on SUCCESS
+        from app.strategies.mock_strategy import classify_explicit
+        pre_explicit = classify_explicit(form)
+
         song = Song.objects.create(
             creator=form.creator,
             form=form,
             title=form.requested_title or f"Generated Song {form.id}",
             duration_seconds=form.requested_duration_seconds or 30,
             task_id=task_id,
+            is_explicit=pre_explicit,
             status="PENDING",
         )
 
@@ -82,13 +87,33 @@ class SunoSongGeneratorStrategy(SongGeneratorStrategy):
 
         occasion = getattr(form, "occasion", "General")
         is_clean_occasion = occasion in CLEAN_OCCASIONS
+
+        # Scan all user-typed text fields for explicit keywords
+        from app.strategies.mock_strategy import scan_text_explicit, EXPLICIT_KEYWORDS
+        text_inputs = " ".join([
+            getattr(form, "prompt", "") or "",
+            getattr(form, "background_story", "") or "",
+        ])
+        text_has_explicit = scan_text_explicit(text_inputs)
+
+        # Build negativeTags: always base, +clean guard, +detected keywords for clean occasions
         negative_tags = "Heavy Metal, Upbeat Drums"
         if is_clean_occasion:
             negative_tags += f", {CLEAN_NEGATIVE_TAGS}"
+            if text_has_explicit:
+                # Add any detected explicit words directly so Suno avoids them
+                found = [kw for kw in EXPLICIT_KEYWORDS if kw in text_inputs.lower()]
+                if found:
+                    negative_tags += ", " + ", ".join(found[:10])  # cap to avoid payload bloat
+
+        # For non-clean occasions with explicit text: tag style so Suno understands intent
+        final_style = style_str
+        if text_has_explicit and not is_clean_occasion:
+            final_style = style_str + ", explicit"
 
         payload = {
             "prompt": form.prompt,
-            "style": style_str,
+            "style": final_style,
             "title": form.requested_title or "Untitled Song",
             "model": "V4_5ALL",
             "customMode": True,
